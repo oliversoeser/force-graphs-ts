@@ -8,5 +8,6 @@
         ],
         "noUnusedLocals": true,
         "module": "commonjs",
+        "removeComments": true,
     }
 }

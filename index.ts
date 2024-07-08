@@ -9,28 +9,35 @@ class Vector2D {
         this.y = y;
     }
 
+    // The sum of the vectors
     add(other: Vector2D): Vector2D {
         return new Vector2D(this.x + other.x, this.y + other.y);
     }
 
+    // The vector from itself to the other vector
     to(other: Vector2D): Vector2D {
         return new Vector2D(other.x - this.x, other.y - this.y);
     }
 
+    // The magnitude of the vector
     size(): number {
         return Math.sqrt(this.x**2 + this.y**2);
     }
 
+    // The vector multiplied by a factor
     times(factor: number): Vector2D {
         return new Vector2D(this.x * factor, this.y * factor);
     }
 }
 
 class Particle {
+    // Physical properties
     public pos: Vector2D;
     public velocity: Vector2D;
     public mass: number;
     public charge: number;
+
+    // Representation
     public radius: number;
     public color: string;
 
@@ -39,25 +46,30 @@ class Particle {
         this.velocity = new Vector2D(0, 0);
         this.mass = mass;
         this.charge = 6;
+
         this.radius = radius;
         this.color = color;
     }
 
+    // Continuous acceleration
     applyForce(force: Vector2D) {
         let acceleration = force.times(1/this.mass);
         this.velocity = this.velocity.add(acceleration.times(dt));
     }
 
+    // Continuous particle movement
     step() {
         this.pos = this.pos.add(this.velocity.times(dt));
     }
 }
 
 class Spring {
+    // Physical properties
     public source: Particle;
     public target: Particle;
     public ideal: number;
     public stiffness: number;
+
     public color: string;
 
     constructor(source: Particle, target: Particle, color: string) {
@@ -106,9 +118,12 @@ class Drawing {
 
 class Physics {
     private drawing: Drawing;
+
+    // Physical constants
     private G: number = 1.7*10**4;
     private ke: number = 10**4;
 
+    // Objects
     private particle_array: Particle[];
     private spring_array: Spring[];    
 
@@ -139,7 +154,7 @@ class Physics {
 
     step() {
         this.particle_array.forEach(particle => {
-            // Gravity
+            // Gravity towards centre
             let centre = new Particle(new Vector2D(500, 500), 100, 10, "black")
 
             particle.applyForce(this.gravitationalForce(particle, centre));
@@ -150,6 +165,7 @@ class Physics {
             });
         });
 
+        // Spring forces
         this.spring_array.forEach(spring => {
             let r_vec = spring.source.pos.to(spring.target.pos);
             let r = Math.max(r_vec.size(), spring.source.radius);
@@ -159,8 +175,10 @@ class Physics {
             spring.target.applyForce(force.times(-1));
         });
 
+        // Reset canvas
         this.drawing.clear();
 
+        // Draw
         this.particle_array.forEach(particle => {
             particle.step();
             this.drawing.drawParticle(particle);
@@ -174,16 +192,22 @@ class Physics {
     gravitationalForce(p1: Particle, p2: Particle): Vector2D {
         let r_vec = p1.pos.to(p2.pos);
         let r = Math.max(r_vec.size(), p1.radius);
-        let r_uvec = r_vec.times(1/r);
+        let r_uvec = r_vec.times(1/r); // Unit vector
+
+        // Newton's law of universal gravitation
         let force = r_uvec.times((this.G * p1.mass * p2.mass) / (r**2));
+
         return force
     }
 
     electricForce(p1: Particle, p2: Particle): Vector2D {
         let r_vec = p2.pos.to(p1.pos);
         let r = Math.max(r_vec.size(), p1.radius);
-        let r_uvec = r_vec.times(1/r);
+        let r_uvec = r_vec.times(1/r); // Unit vector
+
+        // Coulomb's law
         let force = r_uvec.times((this.ke * p1.charge * p2.charge)/(r**2));
+
         return force;
     }
 }

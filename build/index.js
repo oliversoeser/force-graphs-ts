@@ -1,5 +1,5 @@
 var dt = 1 / 50;
-var Vector2D = /** @class */ (function () {
+var Vector2D = (function () {
     function Vector2D(x, y) {
         this.x = x;
         this.y = y;
@@ -18,7 +18,7 @@ var Vector2D = /** @class */ (function () {
     };
     return Vector2D;
 }());
-var Particle = /** @class */ (function () {
+var Particle = (function () {
     function Particle(pos, mass, radius, color) {
         this.pos = pos;
         this.velocity = new Vector2D(0, 0);
@@ -36,7 +36,7 @@ var Particle = /** @class */ (function () {
     };
     return Particle;
 }());
-var Spring = /** @class */ (function () {
+var Spring = (function () {
     function Spring(source, target, color) {
         this.source = source;
         this.target = target;
@@ -46,7 +46,7 @@ var Spring = /** @class */ (function () {
     }
     return Spring;
 }());
-var Drawing = /** @class */ (function () {
+var Drawing = (function () {
     function Drawing() {
         this.canvas = document.getElementById("frame");
         this.context = this.canvas.getContext("2d");
@@ -71,7 +71,7 @@ var Drawing = /** @class */ (function () {
     };
     return Drawing;
 }());
-var Physics = /** @class */ (function () {
+var Physics = (function () {
     function Physics() {
         var _this = this;
         this.G = 1.7 * Math.pow(10, 4);
@@ -96,11 +96,9 @@ var Physics = /** @class */ (function () {
     Physics.prototype.step = function () {
         var _this = this;
         this.particle_array.forEach(function (particle) {
-            // Gravity
             var centre = new Particle(new Vector2D(500, 500), 100, 10, "black");
             particle.applyForce(_this.gravitationalForce(particle, centre));
             _this.particle_array.forEach(function (other) {
-                // Charge
                 particle.applyForce(_this.electricForce(particle, other));
             });
         });
