@@ -45,7 +45,7 @@ class Particle {
         this.pos = pos;
         this.velocity = new Vector2D(0, 0);
         this.mass = mass;
-        this.charge = 6;
+        this.charge = 12;
 
         this.radius = radius;
         this.color = color;
@@ -81,13 +81,42 @@ class Spring {
     }
 }
 
+class Mouse {
+    public down: boolean;
+    public pos: Vector2D;
+    public clickpos: Vector2D;
+
+    constructor() {
+        this.down = false;
+        this.pos = new Vector2D(0, 0);
+        this.clickpos = this.pos;
+    }
+}
+
 class Drawing {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
 
+    private mouse: Mouse;
+
     constructor() {
         this.canvas = document.getElementById("frame") as HTMLCanvasElement;
         this.context = this.canvas.getContext("2d");
+
+        this.mouse = new Mouse();
+
+        this.canvas.addEventListener("mousedown", event => {
+            this.mouse.down = true;
+            this.mouse.clickpos = new Vector2D(event.x, event.y);
+        });
+
+        this.canvas.addEventListener("mousemove", event => {
+            
+        });
+
+        this.canvas.addEventListener("mouseup", event => {
+            this.mouse.down = false;
+        });
     }
 
     drawParticle(particle: Particle) {
@@ -154,12 +183,10 @@ class Physics {
 
     step() {
         this.particle_array.forEach(particle => {
-            // Gravity towards centre
-            let centre = new Particle(new Vector2D(500, 500), 100, 10, "black")
-
-            particle.applyForce(this.gravitationalForce(particle, centre));
-
             this.particle_array.forEach(other => {
+                // Gravity 
+                particle.applyForce(this.gravitationalForce(particle, other));
+                
                 // Charge
                 particle.applyForce(this.electricForce(particle, other));
             });
@@ -191,7 +218,7 @@ class Physics {
 
     gravitationalForce(p1: Particle, p2: Particle): Vector2D {
         let r_vec = p1.pos.to(p2.pos);
-        let r = Math.max(r_vec.size(), p1.radius);
+        let r = Math.max(r_vec.size(), p1.radius + p2.radius);
         let r_uvec = r_vec.times(1/r); // Unit vector
 
         // Newton's law of universal gravitation
@@ -202,7 +229,7 @@ class Physics {
 
     electricForce(p1: Particle, p2: Particle): Vector2D {
         let r_vec = p2.pos.to(p1.pos);
-        let r = Math.max(r_vec.size(), p1.radius);
+        let r = Math.max(r_vec.size(), p1.radius + p2.radius);
         let r_uvec = r_vec.times(1/r); // Unit vector
 
         // Coulomb's law
@@ -212,4 +239,6 @@ class Physics {
     }
 }
 
-new Physics();
+window.onload = () => {
+    new Physics();
+}

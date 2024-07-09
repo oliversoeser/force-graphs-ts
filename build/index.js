@@ -23,7 +23,7 @@ var Particle = (function () {
         this.pos = pos;
         this.velocity = new Vector2D(0, 0);
         this.mass = mass;
-        this.charge = 6;
+        this.charge = 12;
         this.radius = radius;
         this.color = color;
     }
@@ -46,10 +46,29 @@ var Spring = (function () {
     }
     return Spring;
 }());
+var Mouse = (function () {
+    function Mouse() {
+        this.down = false;
+        this.pos = new Vector2D(0, 0);
+        this.clickpos = this.pos;
+    }
+    return Mouse;
+}());
 var Drawing = (function () {
     function Drawing() {
+        var _this = this;
         this.canvas = document.getElementById("frame");
         this.context = this.canvas.getContext("2d");
+        this.mouse = new Mouse();
+        this.canvas.addEventListener("mousedown", function (event) {
+            _this.mouse.down = true;
+            _this.mouse.clickpos = new Vector2D(event.x, event.y);
+        });
+        this.canvas.addEventListener("mousemove", function (event) {
+        });
+        this.canvas.addEventListener("mouseup", function (event) {
+            _this.mouse.down = false;
+        });
     }
     Drawing.prototype.drawParticle = function (particle) {
         var pos = particle.pos;
@@ -96,9 +115,8 @@ var Physics = (function () {
     Physics.prototype.step = function () {
         var _this = this;
         this.particle_array.forEach(function (particle) {
-            var centre = new Particle(new Vector2D(500, 500), 100, 10, "black");
-            particle.applyForce(_this.gravitationalForce(particle, centre));
             _this.particle_array.forEach(function (other) {
+                particle.applyForce(_this.gravitationalForce(particle, other));
                 particle.applyForce(_this.electricForce(particle, other));
             });
         });
@@ -121,18 +139,20 @@ var Physics = (function () {
     };
     Physics.prototype.gravitationalForce = function (p1, p2) {
         var r_vec = p1.pos.to(p2.pos);
-        var r = Math.max(r_vec.size(), p1.radius);
+        var r = Math.max(r_vec.size(), p1.radius + p2.radius);
         var r_uvec = r_vec.times(1 / r);
         var force = r_uvec.times((this.G * p1.mass * p2.mass) / (Math.pow(r, 2)));
         return force;
     };
     Physics.prototype.electricForce = function (p1, p2) {
         var r_vec = p2.pos.to(p1.pos);
-        var r = Math.max(r_vec.size(), p1.radius);
+        var r = Math.max(r_vec.size(), p1.radius + p2.radius);
         var r_uvec = r_vec.times(1 / r);
         var force = r_uvec.times((this.ke * p1.charge * p2.charge) / (Math.pow(r, 2)));
         return force;
     };
     return Physics;
 }());
-new Physics();
+window.onload = function () {
+    new Physics();
+};
