@@ -4,30 +4,26 @@ function getRandomInt(min, max) {
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-var Vector2D = /** @class */ (function () {
+var Vector2D = (function () {
     function Vector2D(x, y) {
         this.x = x;
         this.y = y;
     }
-    // The sum of the vectors
     Vector2D.prototype.add = function (other) {
         return new Vector2D(this.x + other.x, this.y + other.y);
     };
-    // The vector from itself to the other vector
     Vector2D.prototype.to = function (other) {
         return new Vector2D(other.x - this.x, other.y - this.y);
     };
-    // The magnitude of the vector
     Vector2D.prototype.size = function () {
         return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2));
     };
-    // The vector multiplied by a factor
     Vector2D.prototype.times = function (factor) {
         return new Vector2D(this.x * factor, this.y * factor);
     };
     return Vector2D;
 }());
-var Particle = /** @class */ (function () {
+var Particle = (function () {
     function Particle(pos, mass, radius, color) {
         this.pos = pos;
         this.velocity = new Vector2D(0, 0);
@@ -47,7 +43,7 @@ var Particle = /** @class */ (function () {
     };
     return Particle;
 }());
-var Spring = /** @class */ (function () {
+var Spring = (function () {
     function Spring(source, target, color) {
         this.source = source;
         this.target = target;
@@ -57,7 +53,7 @@ var Spring = /** @class */ (function () {
     }
     return Spring;
 }());
-var Mouse = /** @class */ (function () {
+var Mouse = (function () {
     function Mouse() {
         this.down = false;
         this.pos = new Vector2D(0, 0);
@@ -65,7 +61,7 @@ var Mouse = /** @class */ (function () {
     }
     return Mouse;
 }());
-var Drawing = /** @class */ (function () {
+var Drawing = (function () {
     function Drawing() {
         var _this = this;
         this.canvas = document.getElementById("frame");
@@ -101,10 +97,9 @@ var Drawing = /** @class */ (function () {
     };
     return Drawing;
 }());
-var Physics = /** @class */ (function () {
+var Physics = (function () {
     function Physics() {
         var _this = this;
-        // Physical constants
         this.ke = 1;
         this.drawing = new Drawing();
         this.particle_array = new Array();
@@ -127,7 +122,6 @@ var Physics = /** @class */ (function () {
         var _this = this;
         this.particle_array.forEach(function (particle) {
             _this.particle_array.forEach(function (other) {
-                // Charge
                 var adjacent = false;
                 _this.spring_array.forEach(function (spring) {
                     if ((spring.source == particle && spring.target == other) || (spring.source == other && spring.target == particle)) {
@@ -139,18 +133,15 @@ var Physics = /** @class */ (function () {
                 }
             });
         });
-        // Spring forces
         this.spring_array.forEach(function (spring) {
             var r_vec = spring.source.pos.to(spring.target.pos);
             var d = Math.max(r_vec.size(), spring.source.radius);
-            var r_uvec = r_vec.times(1 / d); // Unit vector
+            var r_uvec = r_vec.times(1 / d);
             var force = r_uvec.times(spring.stiffness * Math.log(d / spring.ideal));
             spring.source.applyForce(force);
             spring.target.applyForce(force.times(-1));
         });
-        // Reset canvas
         this.drawing.clear();
-        // Draw
         this.particle_array.forEach(function (particle) {
             particle.step();
             _this.drawing.drawParticle(particle);
@@ -162,7 +153,7 @@ var Physics = /** @class */ (function () {
     Physics.prototype.electricForce = function (p1, p2) {
         var r_vec = p2.pos.to(p1.pos);
         var d = Math.max(r_vec.size(), p1.radius + p2.radius);
-        var r_uvec = r_vec.times(1 / d); // Unit vector
+        var r_uvec = r_vec.times(1 / d);
         var force = r_uvec.times(this.ke / Math.sqrt(d));
         return force;
     };
