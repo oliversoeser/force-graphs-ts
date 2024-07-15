@@ -1,8 +1,10 @@
 var dt = 1 / 50;
-var c1 = 2;
-var c2 = 30;
-var c3 = 1;
-var c4 = 1;
+var springFactor = 3;
+var idealSpringLength = 30;
+var electricalFactor = 2;
+var velocityFactor = 100;
+var gravityRadius = 500;
+var gravityFactor = 5000;
 var Vector = (function () {
     function Vector(x, y) {
         this.x = x;
@@ -23,7 +25,7 @@ var Vertex = (function () {
     }
     Vertex.prototype.applyForce = function (force) { this.force = this.force.add(force); };
     Vertex.prototype.step = function () {
-        this.pos = this.pos.add(this.force.mul(c4));
+        this.pos = this.pos.add(this.force.mul(velocityFactor * dt));
         this.force = ZERO_VECTOR;
     };
     return Vertex;
@@ -135,20 +137,20 @@ var SpringEmbedder = (function () {
     SpringEmbedder.prototype.gravityOrigin = function (vertex) {
         var canvas = this.renderer.canvas;
         var r_vec = vertex.pos.to(new Vector(canvas.width / 2, canvas.height / 2));
-        var d = Math.max(r_vec.size(), 500);
-        var force = r_vec.mul(1 / d).mul(3000 / d);
+        var d = Math.max(r_vec.size(), gravityRadius);
+        var force = r_vec.mul(1 / d).mul(gravityFactor / d);
         return force;
     };
     SpringEmbedder.prototype.springForceEades = function (edge) {
         var r_vec = edge.source.pos.to(edge.target.pos);
         var d = Math.max(r_vec.size(), 1);
-        var force = r_vec.mul(1 / d).mul(c1 * Math.log(d / c2));
+        var force = r_vec.mul(1 / d).mul(springFactor * Math.log(d / idealSpringLength));
         return force;
     };
     SpringEmbedder.prototype.electricalForceEades = function (v1, v2) {
         var r_vec = v2.pos.to(v1.pos);
         var d = Math.max(r_vec.size(), 1);
-        var force = r_vec.mul(1 / d).mul(c3 / Math.sqrt(d));
+        var force = r_vec.mul(1 / d).mul(electricalFactor / Math.sqrt(d));
         return force;
     };
     return SpringEmbedder;

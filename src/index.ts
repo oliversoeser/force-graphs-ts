@@ -1,9 +1,12 @@
 const dt = 1 / 50;
 
-const c1 = 2;
-const c2 = 30;
-const c3 = 1;
-const c4 = 1;
+const springFactor = 3;
+const idealSpringLength = 30;
+const electricalFactor = 2;
+const velocityFactor = 100;
+
+const gravityRadius = 500;
+const gravityFactor = 5000;
 
 class Vector {
     public x: number;
@@ -47,7 +50,7 @@ class Vertex {
 
     // Apply force directly to position
     step() {
-        this.pos = this.pos.add(this.force.mul(c4));
+        this.pos = this.pos.add(this.force.mul(velocityFactor*dt));
         this.force = ZERO_VECTOR; // Reset force
     }
 }
@@ -195,22 +198,22 @@ class SpringEmbedder {
     gravityOrigin(vertex: Vertex): Vector {
         let canvas = this.renderer.canvas;
         let r_vec = vertex.pos.to(new Vector(canvas.width/2, canvas.height/2));
-        let d = Math.max(r_vec.size(), 500);
-        let force = r_vec.mul(1 / d).mul(3000 / d);
+        let d = Math.max(r_vec.size(), gravityRadius);
+        let force = r_vec.mul(1 / d).mul(gravityFactor / d);
         return force
     }
 
     springForceEades(edge: Edge): Vector {
         let r_vec = edge.source.pos.to(edge.target.pos);
         let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul(c1 * Math.log(d / c2));
+        let force = r_vec.mul(1 / d).mul(springFactor * Math.log(d / idealSpringLength));
         return force
     }
 
     electricalForceEades(v1: Vertex, v2: Vertex): Vector {
         let r_vec = v2.pos.to(v1.pos);
         let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul(c3 / Math.sqrt(d));
+        let force = r_vec.mul(1 / d).mul(electricalFactor / Math.sqrt(d));
         return force;
     }
 }
