@@ -96,6 +96,12 @@ class Renderer {
     constructor() {
         this.canvas = document.getElementById("frame") as HTMLCanvasElement;
         this.context = this.canvas.getContext("2d");
+        this.fitCanvasToWindow();
+    }
+
+    fitCanvasToWindow() {
+        this.canvas.width = window.innerWidth + 1;
+        this.canvas.height = window.innerHeight + 1;
     }
 
     drawParticle(particle: Vertex) {
@@ -152,8 +158,8 @@ class SpringEmbedder {
             // Gravity to Origin
             particle.applyForce(this.gravityOrigin(particle));
 
+            // Repulsion
             this.graph.vertices.forEach(other => {
-                // Charge
                 let adjacent = this.graph.areAdjacent(particle, other);
 
                 if (!adjacent) {
@@ -172,6 +178,7 @@ class SpringEmbedder {
 
     stepDraw() {
         // Reset canvas
+        this.renderer.fitCanvasToWindow();
         this.renderer.clear();
 
         // Draw

@@ -60,7 +60,12 @@ var Renderer = (function () {
     function Renderer() {
         this.canvas = document.getElementById("frame");
         this.context = this.canvas.getContext("2d");
+        this.fitCanvasToWindow();
     }
+    Renderer.prototype.fitCanvasToWindow = function () {
+        this.canvas.width = window.innerWidth + 1;
+        this.canvas.height = window.innerHeight + 1;
+    };
     Renderer.prototype.drawParticle = function (particle) {
         var pos = particle.pos;
         this.context.strokeStyle = "black";
@@ -117,6 +122,7 @@ var SpringEmbedder = (function () {
     };
     SpringEmbedder.prototype.stepDraw = function () {
         var _this = this;
+        this.renderer.fitCanvasToWindow();
         this.renderer.clear();
         this.graph.vertices.forEach(function (particle) {
             particle.step();
