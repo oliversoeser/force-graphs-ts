@@ -23,16 +23,19 @@ var Particle = (function () {
         this.pos = pos;
         this.velocity = new Vector2D(0, 0);
         this.mass = mass;
-        this.charge = 12;
+        this.charge = 14;
+        this.force = new Vector2D(0, 0);
         this.radius = radius;
         this.color = color;
     }
     Particle.prototype.applyForce = function (force) {
-        var acceleration = force.times(1 / this.mass);
-        this.velocity = this.velocity.add(acceleration.times(dt));
+        this.force = this.force.add(force);
     };
     Particle.prototype.step = function () {
+        var acceleration = this.force.times(1 / this.mass);
+        this.velocity = this.velocity.add(acceleration.times(dt));
         this.pos = this.pos.add(this.velocity.times(dt));
+        this.force = new Vector2D(0, 0);
     };
     return Particle;
 }());
@@ -41,7 +44,7 @@ var Spring = (function () {
         this.source = source;
         this.target = target;
         this.ideal = 30;
-        this.stiffness = 2;
+        this.stiffness = 5;
         this.color = color;
     }
     return Spring;

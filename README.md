@@ -1,3 +1,3 @@
-# particles-ts
+# springs-ts
 
-https://www.oliversoeser.com/particles-ts/
+https://www.oliversoeser.com/springs-ts/

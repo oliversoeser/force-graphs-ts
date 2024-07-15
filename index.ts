@@ -37,6 +37,8 @@ class Particle {
     public mass: number;
     public charge: number;
 
+    private force: Vector2D;
+
     // Representation
     public radius: number;
     public color: string;
@@ -45,21 +47,24 @@ class Particle {
         this.pos = pos;
         this.velocity = new Vector2D(0, 0);
         this.mass = mass;
-        this.charge = 12;
+        this.charge = 14;
+
+        this.force = new Vector2D(0, 0);
 
         this.radius = radius;
         this.color = color;
     }
 
-    // Continuous acceleration
     applyForce(force: Vector2D) {
-        let acceleration = force.times(1/this.mass);
-        this.velocity = this.velocity.add(acceleration.times(dt));
+        this.force = this.force.add(force);
     }
 
-    // Continuous particle movement
     step() {
+        let acceleration = this.force.times(1/this.mass);
+        this.velocity = this.velocity.add(acceleration.times(dt));
         this.pos = this.pos.add(this.velocity.times(dt));
+
+        this.force = new Vector2D(0, 0);
     }
 }
 
@@ -76,7 +81,7 @@ class Spring {
         this.source = source;
         this.target = target;
         this.ideal = 30;
-        this.stiffness = 2;
+        this.stiffness = 5;
         this.color = color;
     }
 }
