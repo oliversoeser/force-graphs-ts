@@ -1,13 +1,16 @@
 {
     "compilerOptions": {
-        "target": "es5",
-        "sourceMap": true,
-        "lib": [
-            "es5",
-            "dom"
-        ],
-        "noUnusedLocals": true,
         "module": "commonjs",
+        "noImplicitAny": true,
         "removeComments": true,
-    }
+        "preserveConstEnums": true,
+        "sourceMap": false,
+        "outDir": "build/"
+    },
+    "include": [
+        "src/*"
+    ],
+    "exclude": [
+        "build/*"
+    ],
 }
