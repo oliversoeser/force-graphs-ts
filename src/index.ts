@@ -1,12 +1,11 @@
-const dt = 1/50;
+const dt = 1 / 50;
 
-function getRandomInt(min: number, max: number) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+const c1 = 2;
+const c2 = 30;
+const c3 = 1;
+const c4 = 1;
 
-class Vector2D {
+class Vector {
     public x: number;
     public y: number;
 
@@ -15,135 +14,104 @@ class Vector2D {
         this.y = y;
     }
 
-    // The sum of the vectors
-    add(other: Vector2D): Vector2D {
-        return new Vector2D(this.x + other.x, this.y + other.y);
-    }
+    // Vector Addition and Subtraction
+    add(other: Vector): Vector { return new Vector(this.x + other.x, this.y + other.y); }
+    sub(other: Vector): Vector { return new Vector(this.x - other.x, this.y - other.y); }
 
     // The vector from itself to the other vector
-    to(other: Vector2D): Vector2D {
-        return new Vector2D(other.x - this.x, other.y - this.y);
-    }
+    to(other: Vector): Vector { return new Vector(other.x - this.x, other.y - this.y); }
 
-    // The magnitude of the vector
-    size(): number {
-        return Math.sqrt(this.x**2 + this.y**2);
-    }
+    // The Magnitude of the Vector
+    size(): number { return Math.sqrt(this.x ** 2 + this.y ** 2); }
 
-    // The vector multiplied by a factor
-    times(factor: number): Vector2D {
-        return new Vector2D(this.x * factor, this.y * factor);
-    }
+    // Scalar Multiplication
+    mul(factor: number): Vector { return new Vector(this.x * factor, this.y * factor); }
 }
 
-class Particle {
-    // Physical properties
-    public pos: Vector2D;
-    public velocity: Vector2D;
-    public mass: number;
-    public charge: number;
+const ZERO_VECTOR = new Vector(0, 0);
 
-    private force: Vector2D;
+class Vertex {
+    // Position
+    public pos: Vector;
 
-    // Representation
-    public radius: number;
-    public color: string;
+    // Total force applied in the current step
+    private force: Vector;
 
-    constructor(pos: Vector2D, mass: number, radius: number, color: string) {
+    constructor(pos: Vector) {
         this.pos = pos;
-        this.velocity = new Vector2D(0, 0);
-        this.mass = mass;
-        this.charge = 1;
-
-        this.force = new Vector2D(0, 0);
-
-        this.radius = radius;
-        this.color = color;
+        this.force = ZERO_VECTOR;
     }
 
-    applyForce(force: Vector2D) {
-        this.force = this.force.add(force);
-    }
+    // Sum forces
+    applyForce(force: Vector) { this.force = this.force.add(force); }
 
+    // Apply force directly to position
     step() {
-        this.velocity = this.force.times(1/this.mass);
-        this.pos = this.pos.add(this.velocity.times(3));
-
-        this.force = new Vector2D(0, 0);
+        this.pos = this.pos.add(this.force.mul(c4));
+        this.force = ZERO_VECTOR; // Reset force
     }
 }
 
-class Spring {
-    // Physical properties
-    public source: Particle;
-    public target: Particle;
-    public ideal: number;
-    public stiffness: number;
+class Edge {
+    public source: Vertex;
+    public target: Vertex;
 
-    public color: string;
-
-    constructor(source: Particle, target: Particle, color: string) {
+    constructor(source: Vertex, target: Vertex) {
         this.source = source;
         this.target = target;
-        this.ideal = 20;
-        this.stiffness = 2;
-        this.color = color;
     }
 }
 
-class Mouse {
-    public down: boolean;
-    public pos: Vector2D;
-    public clickpos: Vector2D;
+class Graph {
+    public vertices: Vertex[];
+    public edges: Edge[];
 
     constructor() {
-        this.down = false;
-        this.pos = new Vector2D(0, 0);
-        this.clickpos = this.pos;
+        this.vertices = new Array();
+        this.edges = new Array();
+
+        for (let i = 0; i < 70; i++) {
+            this.vertices.push(new Vertex(new Vector(150 + Math.random() * 700, 150 + Math.random() * 700)));
+        }
+
+        for (let i = 0; i < 70; i++) {
+            this.edges.push(new Edge(this.vertices[i], this.vertices[Math.floor(Math.random() * 70)]));
+        }
+    }
+
+    areAdjacent(v1: Vertex, v2: Vertex): boolean {
+        this.edges.forEach(spring => {
+            if ((spring.source == v1 && spring.target == v2) || (spring.source == v2 && spring.target == v1)) {
+                return true;
+            }
+        });
+        return false;
     }
 }
 
-class Drawing {
-    private canvas: HTMLCanvasElement;
+class Renderer {
+    public canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
-
-    private mouse: Mouse;
 
     constructor() {
         this.canvas = document.getElementById("frame") as HTMLCanvasElement;
         this.context = this.canvas.getContext("2d");
-
-        this.mouse = new Mouse();
-
-        this.canvas.addEventListener("mousedown", event => {
-            this.mouse.down = true;
-            this.mouse.clickpos = new Vector2D(event.x, event.y);
-        });
-
-        this.canvas.addEventListener("mousemove", event => {
-            
-        });
-
-        this.canvas.addEventListener("mouseup", event => {
-            this.mouse.down = false;
-        });
     }
 
-    drawParticle(particle: Particle) {
+    drawParticle(particle: Vertex) {
         let pos = particle.pos;
-
-        this.context.strokeStyle = particle.color;
+        this.context.strokeStyle = "black";
 
         this.context.beginPath();
-        this.context.arc(pos.x, pos.y, particle.radius, 0, 2 * Math.PI);
+        this.context.arc(pos.x, pos.y, 10, 0, 2 * Math.PI);
         this.context.stroke();
     }
 
-    drawSpring(spring: Spring) {
+    drawSpring(spring: Edge) {
         let start = spring.source.pos;
         let end = spring.target.pos;
 
-        this.context.strokeStyle = spring.color;
+        this.context.strokeStyle = "black";
 
         this.context.moveTo(start.x, start.y);
         this.context.lineTo(end.x, end.y);
@@ -155,96 +123,91 @@ class Drawing {
     }
 }
 
-class Physics {
-    private drawing: Drawing;
-
-    // Physical constants
-    private ke: number = 1;
-
-    // Objects
-    private particle_array: Particle[];
-    private spring_array: Spring[];    
+class SpringEmbedder {
+    private renderer: Renderer;
+    private graph: Graph;
 
     constructor() {
-        this.drawing = new Drawing();
+        this.renderer = new Renderer();
+        this.graph = new Graph();
 
-        this.particle_array = new Array();
-        this.spring_array = new Array();
-
-        for (let i = 0; i < 100; i++) {
-            this.particle_array.push(new Particle(new Vector2D(150 + Math.random()*700, 150 + Math.random()*700), 10, 10, "black"));
-        }
-
-        for (let i = 0; i < 70; i++) {
-            this.spring_array.push(new Spring(this.particle_array[i], this.particle_array[getRandomInt(0, 99)], "#cedfe8"));
-        }
-
-        this.particle_array.forEach(particle => {
-            this.drawing.drawParticle(particle);
+        this.graph.vertices.forEach(particle => {
+            this.renderer.drawParticle(particle);
         });
 
-        this.spring_array.forEach(spring => {
-            this.drawing.drawSpring(spring);
+        this.graph.edges.forEach(spring => {
+            this.renderer.drawSpring(spring);
         });
 
-        setInterval(this.step.bind(this), 1000*dt);
+        setInterval(this.step.bind(this), 1000 * dt);
     }
 
     step() {
-        this.particle_array.forEach(particle => {
-            this.particle_array.forEach(other => {
-                // Charge
-                let adjacent = false;
+        this.stepEades();
+        this.stepDraw();
+    }
 
-                this.spring_array.forEach(spring => {
-                    if ((spring.source == particle && spring.target == other) || (spring.source == other && spring.target == particle)) {
-                        adjacent = true;
-                    }
-                });
+    stepEades() {
+        this.graph.vertices.forEach(particle => {
+            // Gravity to Origin
+            particle.applyForce(this.gravityOrigin(particle));
+
+            this.graph.vertices.forEach(other => {
+                // Charge
+                let adjacent = this.graph.areAdjacent(particle, other);
 
                 if (!adjacent) {
-                    particle.applyForce(this.electricForce(particle, other));
+                    particle.applyForce(this.electricalForceEades(particle, other));
                 }
             });
         });
 
         // Spring forces
-        this.spring_array.forEach(spring => {
-            let r_vec = spring.source.pos.to(spring.target.pos);
-            let d = Math.max(r_vec.size(), spring.source.radius);
-            let r_uvec = r_vec.times(1/d); // Unit vector
-
-            let force = r_uvec.times(spring.stiffness * Math.log(d/spring.ideal));
-
-            spring.source.applyForce(force);
-            spring.target.applyForce(force.times(-1));
-        });
-
-        // Reset canvas
-        this.drawing.clear();
-
-        // Draw
-        this.particle_array.forEach(particle => {
-            particle.step();
-            this.drawing.drawParticle(particle);
-        });
-
-        this.spring_array.forEach(spring => {
-            this.drawing.drawSpring(spring);
+        this.graph.edges.forEach(edge => {
+            let force = this.springForceEades(edge);
+            edge.source.applyForce(force);
+            edge.target.applyForce(force.mul(-1));
         });
     }
 
-    electricForce(p1: Particle, p2: Particle): Vector2D {
-        let r_vec = p2.pos.to(p1.pos);
-        let d = Math.max(r_vec.size(), p1.radius + p2.radius);
-        let r_uvec = r_vec.times(1/d); // Unit vector
+    stepDraw() {
+        // Reset canvas
+        this.renderer.clear();
 
-        let force = r_uvec.times(this.ke / Math.sqrt(d));
+        // Draw
+        this.graph.vertices.forEach(particle => {
+            particle.step();
+            this.renderer.drawParticle(particle);
+        });
 
+        this.graph.edges.forEach(spring => {
+            this.renderer.drawSpring(spring);
+        });
+    }
+
+    gravityOrigin(vertex: Vertex): Vector {
+        let canvas = this.renderer.canvas;
+        let r_vec = vertex.pos.to(new Vector(canvas.width/2, canvas.height/2));
+        let d = Math.max(r_vec.size(), 500);
+        let force = r_vec.mul(1 / d).mul(3000 / d);
+        return force
+    }
+
+    springForceEades(edge: Edge): Vector {
+        let r_vec = edge.source.pos.to(edge.target.pos);
+        let d = Math.max(r_vec.size(), 1);
+        let force = r_vec.mul(1 / d).mul(c1 * Math.log(d / c2));
+        return force
+    }
+
+    electricalForceEades(v1: Vertex, v2: Vertex): Vector {
+        let r_vec = v2.pos.to(v1.pos);
+        let d = Math.max(r_vec.size(), 1);
+        let force = r_vec.mul(1 / d).mul(c3 / Math.sqrt(d));
         return force;
     }
 }
 
 window.onload = () => {
-    new Physics();
+    new SpringEmbedder();
 }
