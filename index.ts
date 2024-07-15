@@ -1,5 +1,11 @@
 const dt = 1/50;
 
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 class Vector2D {
     public x: number;
     public y: number;
@@ -47,7 +53,7 @@ class Particle {
         this.pos = pos;
         this.velocity = new Vector2D(0, 0);
         this.mass = mass;
-        this.charge = 14;
+        this.charge = 1;
 
         this.force = new Vector2D(0, 0);
 
@@ -60,9 +66,8 @@ class Particle {
     }
 
     step() {
-        let acceleration = this.force.times(1/this.mass);
-        this.velocity = this.velocity.add(acceleration.times(dt));
-        this.pos = this.pos.add(this.velocity.times(dt));
+        this.velocity = this.force.times(1/this.mass);
+        this.pos = this.pos.add(this.velocity.times(3));
 
         this.force = new Vector2D(0, 0);
     }
@@ -80,8 +85,8 @@ class Spring {
     constructor(source: Particle, target: Particle, color: string) {
         this.source = source;
         this.target = target;
-        this.ideal = 30;
-        this.stiffness = 5;
+        this.ideal = 20;
+        this.stiffness = 2;
         this.color = color;
     }
 }
@@ -154,8 +159,7 @@ class Physics {
     private drawing: Drawing;
 
     // Physical constants
-    private G: number = 1.7*10**4;
-    private ke: number = 10**4;
+    private ke: number = 1;
 
     // Objects
     private particle_array: Particle[];
@@ -171,8 +175,8 @@ class Physics {
             this.particle_array.push(new Particle(new Vector2D(150 + Math.random()*700, 150 + Math.random()*700), 10, 10, "black"));
         }
 
-        for (let i = 0; i < 40; i++) {
-            this.spring_array.push(new Spring(this.particle_array[i], this.particle_array[i+1], "#cedfe8"));
+        for (let i = 0; i < 70; i++) {
+            this.spring_array.push(new Spring(this.particle_array[i], this.particle_array[getRandomInt(0, 99)], "#cedfe8"));
         }
 
         this.particle_array.forEach(particle => {
@@ -189,20 +193,29 @@ class Physics {
     step() {
         this.particle_array.forEach(particle => {
             this.particle_array.forEach(other => {
-                // Gravity 
-                particle.applyForce(this.gravitationalForce(particle, other));
-                
                 // Charge
-                particle.applyForce(this.electricForce(particle, other));
+                let adjacent = false;
+
+                this.spring_array.forEach(spring => {
+                    if ((spring.source == particle && spring.target == other) || (spring.source == other && spring.target == particle)) {
+                        adjacent = true;
+                    }
+                });
+
+                if (!adjacent) {
+                    particle.applyForce(this.electricForce(particle, other));
+                }
             });
         });
 
         // Spring forces
         this.spring_array.forEach(spring => {
             let r_vec = spring.source.pos.to(spring.target.pos);
-            let r = Math.max(r_vec.size(), spring.source.radius);
-            let ideal_vec = r_vec.times(spring.ideal/r);
-            let force = r_vec.add(ideal_vec.times(-1)).times(spring.stiffness);
+            let d = Math.max(r_vec.size(), spring.source.radius);
+            let r_uvec = r_vec.times(1/d); // Unit vector
+
+            let force = r_uvec.times(spring.stiffness * Math.log(d/spring.ideal));
+
             spring.source.applyForce(force);
             spring.target.applyForce(force.times(-1));
         });
@@ -221,24 +234,12 @@ class Physics {
         });
     }
 
-    gravitationalForce(p1: Particle, p2: Particle): Vector2D {
-        let r_vec = p1.pos.to(p2.pos);
-        let r = Math.max(r_vec.size(), p1.radius + p2.radius);
-        let r_uvec = r_vec.times(1/r); // Unit vector
-
-        // Newton's law of universal gravitation
-        let force = r_uvec.times((this.G * p1.mass * p2.mass) / (r**2));
-
-        return force
-    }
-
     electricForce(p1: Particle, p2: Particle): Vector2D {
         let r_vec = p2.pos.to(p1.pos);
-        let r = Math.max(r_vec.size(), p1.radius + p2.radius);
-        let r_uvec = r_vec.times(1/r); // Unit vector
+        let d = Math.max(r_vec.size(), p1.radius + p2.radius);
+        let r_uvec = r_vec.times(1/d); // Unit vector
 
-        // Coulomb's law
-        let force = r_uvec.times((this.ke * p1.charge * p2.charge)/(r**2));
+        let force = r_uvec.times(this.ke / Math.sqrt(d));
 
         return force;
     }
