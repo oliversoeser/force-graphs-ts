@@ -60,22 +60,24 @@ var Graph = (function () {
         this.vertices = new Array();
         this.edges = new Array();
         this.keyToVertex = {};
+        this.adjacency = {};
         data.vertices.forEach(function (vdata) {
             var vertex = new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), vdata.key);
             _this.keyToVertex[vdata.key] = vertex;
             _this.vertices.push(vertex);
+            data.vertices.forEach(function (vdata2) {
+                _this.adjacency[vdata.key + vdata2.key] = false;
+                _this.adjacency[vdata2.key + vdata.key] = false;
+            });
         });
         data.edges.forEach(function (edata) {
             _this.edges.push(new Edge(_this.keyToVertex[edata.source], _this.keyToVertex[edata.target]));
+            _this.adjacency[edata.source + edata.target] = true;
+            _this.adjacency[edata.target + edata.source] = true;
         });
     }
     Graph.prototype.areAdjacent = function (v1, v2) {
-        this.edges.forEach(function (edge) {
-            if ((edge.source == v1 && edge.target == v2) || (edge.source == v2 && edge.target == v1)) {
-                return true;
-            }
-        });
-        return false;
+        return this.adjacency[v1.key + v2.key];
     };
     return Graph;
 }());

@@ -120,31 +120,35 @@ class Graph {
     public vertices: Vertex[];
     public edges: Edge[];
     public keyToVertex: Dictionary<Vertex>;
+    public adjacency: Dictionary<boolean>;
 
     constructor(data: GraphData) {
         this.vertices = new Array();
         this.edges = new Array();
 
         this.keyToVertex = {};
+        this.adjacency = {};
 
         data.vertices.forEach(vdata => {
             let vertex = new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), vdata.key)
             this.keyToVertex[vdata.key] = vertex;
             this.vertices.push(vertex);
+
+            data.vertices.forEach(vdata2 => {
+                this.adjacency[vdata.key + vdata2.key] = false;
+                this.adjacency[vdata2.key + vdata.key] = false;
+            });
         });
 
         data.edges.forEach(edata => {
             this.edges.push(new Edge(this.keyToVertex[edata.source], this.keyToVertex[edata.target]));
+            this.adjacency[edata.source + edata.target] = true;
+            this.adjacency[edata.target + edata.source] = true;
         });
     }
 
     areAdjacent(v1: Vertex, v2: Vertex): boolean {
-        this.edges.forEach(edge => {
-            if ((edge.source == v1 && edge.target == v2) || (edge.source == v2 && edge.target == v1)) {
-                return true;
-            }
-        });
-        return false;
+        return this.adjacency[v1.key + v2.key];
     }
 }
 
