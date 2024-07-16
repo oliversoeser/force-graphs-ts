@@ -1,12 +1,46 @@
-const dt = 1 / 50;
+/*** INTERFACES AND TYPES ***/
 
-const springFactor = 3;
-const idealSpringLength = 30;
-const electricalFactor = 2;
-const velocityFactor = 100;
+// Dictionary Interface
+interface Dictionary<T> {
+    [Key: string]: T;
+}
 
-const gravityRadius = 500;
-const gravityFactor = 5000;
+// Graph Data representation
+type VertexData = { key: string; };
+type EdgeData = { source: string; target: string; };
+type GraphData = { vertices: VertexData[]; edges: EdgeData[]; };
+
+
+/*** CONSTANTS ***/
+
+// Delta Time
+const DT = 1 / 50;
+
+// Force Coefficients
+const SPRING_FACTOR = 3;
+const ELECTRICAL_FACTOR = 3;
+const VELOCITY_FACTOR = 100;
+const GRAVITY_FACTOR = 15000;
+
+// Target Distance between Vertices
+const IDEAL_SPRING_LENGTH = 50;
+
+// Radius of Uniform Gravity
+const GRAVITY_RADIUS = 700;
+
+// Render Settings
+const VERTEX_RADIUS = 10;
+const VERTEX_STYLE = "black";
+const EDGE_STYLE = "black";
+
+
+/*** VARIABLES ***/
+
+let canvas: HTMLCanvasElement;
+let context: CanvasRenderingContext2D;
+
+
+/*** MATHEMATICS ***/
 
 class Vector {
     public x: number;
@@ -33,16 +67,18 @@ class Vector {
 
 const ZERO_VECTOR = new Vector(0, 0);
 
+
+/*** GRAPHS ***/
+
 class Vertex {
-    // Position
-    public pos: Vector;
+    public pos: Vector; // Position
+    private force: Vector; // Total force applied in the current step
+    public key: string;
 
-    // Total force applied in the current step
-    private force: Vector;
-
-    constructor(pos: Vector) {
+    constructor(pos: Vector, key: string) {
         this.pos = pos;
         this.force = ZERO_VECTOR;
+        this.key = key;
     }
 
     // Sum forces
@@ -50,7 +86,7 @@ class Vertex {
 
     // Apply force directly to position
     step() {
-        this.pos = this.pos.add(this.force.mul(velocityFactor*dt));
+        this.pos = this.pos.add(this.force.mul(VELOCITY_FACTOR * DT));
         this.force = ZERO_VECTOR; // Reset force
     }
 }
@@ -68,23 +104,28 @@ class Edge {
 class Graph {
     public vertices: Vertex[];
     public edges: Edge[];
+    public keyToVertex: Dictionary<Vertex>;
 
-    constructor() {
+    constructor(data: GraphData) {
         this.vertices = new Array();
         this.edges = new Array();
 
-        for (let i = 0; i < 70; i++) {
-            this.vertices.push(new Vertex(new Vector(150 + Math.random() * 700, 150 + Math.random() * 700)));
-        }
+        this.keyToVertex = {};
 
-        for (let i = 0; i < 70; i++) {
-            this.edges.push(new Edge(this.vertices[i], this.vertices[Math.floor(Math.random() * 70)]));
-        }
+        data.vertices.forEach(vdata => {
+            let vertex = new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), vdata.key)
+            this.keyToVertex[vdata.key] = vertex;
+            this.vertices.push(vertex);
+        });
+
+        data.edges.forEach(edata => {
+            this.edges.push(new Edge(this.keyToVertex[edata.source], this.keyToVertex[edata.target]));
+        });
     }
 
     areAdjacent(v1: Vertex, v2: Vertex): boolean {
-        this.edges.forEach(spring => {
-            if ((spring.source == v1 && spring.target == v2) || (spring.source == v2 && spring.target == v1)) {
+        this.edges.forEach(edge => {
+            if ((edge.source == v1 && edge.target == v2) || (edge.source == v2 && edge.target == v1)) {
                 return true;
             }
         });
@@ -92,63 +133,61 @@ class Graph {
     }
 }
 
-class Renderer {
-    public canvas: HTMLCanvasElement;
-    private context: CanvasRenderingContext2D;
 
+/*** VISUALISATION ***/
+
+class Renderer {
     constructor() {
-        this.canvas = document.getElementById("frame") as HTMLCanvasElement;
-        this.context = this.canvas.getContext("2d");
         this.fitCanvasToWindow();
     }
 
     fitCanvasToWindow() {
-        this.canvas.width = window.innerWidth + 1;
-        this.canvas.height = window.innerHeight + 1;
+        canvas.width = window.innerWidth + 1;
+        canvas.height = window.innerHeight + 1;
     }
 
-    drawParticle(particle: Vertex) {
-        let pos = particle.pos;
-        this.context.strokeStyle = "black";
+    drawVertex(vertex: Vertex) {
+        let pos = vertex.pos;
 
-        this.context.beginPath();
-        this.context.arc(pos.x, pos.y, 10, 0, 2 * Math.PI);
-        this.context.stroke();
+        context.beginPath();
+        context.arc(pos.x, pos.y, VERTEX_RADIUS, 0, 2 * Math.PI);
+        context.stroke();
     }
 
-    drawSpring(spring: Edge) {
-        let start = spring.source.pos;
-        let end = spring.target.pos;
+    drawEdge(edge: Edge) {
+        let start = edge.source.pos;
+        let end = edge.target.pos;
 
-        this.context.strokeStyle = "black";
-
-        this.context.moveTo(start.x, start.y);
-        this.context.lineTo(end.x, end.y);
-        this.context.stroke();
+        context.moveTo(start.x, start.y);
+        context.lineTo(end.x, end.y);
+        context.stroke();
     }
 
     clear() {
-        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        context.clearRect(0, 0, canvas.width, canvas.height);
     }
 }
+
+
+/*** FORCE DIRECTED GRAPH ALGORITHM ***/
 
 class SpringEmbedder {
     private renderer: Renderer;
     private graph: Graph;
 
-    constructor() {
+    constructor(data: GraphData) {
         this.renderer = new Renderer();
-        this.graph = new Graph();
+        this.graph = new Graph(data);
 
-        this.graph.vertices.forEach(particle => {
-            this.renderer.drawParticle(particle);
+        this.graph.vertices.forEach(vertex => {
+            this.renderer.drawVertex(vertex);
         });
 
-        this.graph.edges.forEach(spring => {
-            this.renderer.drawSpring(spring);
+        this.graph.edges.forEach(edge => {
+            this.renderer.drawEdge(edge);
         });
 
-        setInterval(this.step.bind(this), 1000 * dt);
+        setInterval(this.step.bind(this), 1000 * DT);
     }
 
     step() {
@@ -156,17 +195,18 @@ class SpringEmbedder {
         this.stepDraw();
     }
 
+    // Eades' SPRING Algorithm
     stepEades() {
-        this.graph.vertices.forEach(particle => {
+        this.graph.vertices.forEach(vertex => {
             // Gravity to Origin
-            particle.applyForce(this.gravityOrigin(particle));
+            vertex.applyForce(this.gravityOrigin(vertex));
 
             // Repulsion
             this.graph.vertices.forEach(other => {
-                let adjacent = this.graph.areAdjacent(particle, other);
+                let adjacent = this.graph.areAdjacent(vertex, other);
 
                 if (!adjacent) {
-                    particle.applyForce(this.electricalForceEades(particle, other));
+                    vertex.applyForce(this.electricalForceEades(vertex, other));
                 }
             });
         });
@@ -179,45 +219,63 @@ class SpringEmbedder {
         });
     }
 
+    // Render Graph
     stepDraw() {
         // Reset canvas
         this.renderer.fitCanvasToWindow();
         this.renderer.clear();
 
-        // Draw
-        this.graph.vertices.forEach(particle => {
-            particle.step();
-            this.renderer.drawParticle(particle);
+        // Draw Vertices
+        context.strokeStyle = VERTEX_STYLE;
+        this.graph.vertices.forEach(vertex => {
+            vertex.step();
+            this.renderer.drawVertex(vertex);
         });
 
-        this.graph.edges.forEach(spring => {
-            this.renderer.drawSpring(spring);
+        // Draw Edges
+        context.strokeStyle = EDGE_STYLE;
+        this.graph.edges.forEach(edge => {
+            this.renderer.drawEdge(edge);
         });
     }
 
+    // Keep Graph centred
     gravityOrigin(vertex: Vertex): Vector {
-        let canvas = this.renderer.canvas;
-        let r_vec = vertex.pos.to(new Vector(canvas.width/2, canvas.height/2));
-        let d = Math.max(r_vec.size(), gravityRadius);
-        let force = r_vec.mul(1 / d).mul(gravityFactor / d);
+        let r_vec = vertex.pos.to(new Vector(canvas.width / 2, canvas.height / 2));
+        let d = Math.max(r_vec.size(), GRAVITY_RADIUS);
+        let force = r_vec.mul(1 / d).mul(GRAVITY_FACTOR / d);
         return force
     }
 
+    // Keep adjacent Vertices together
     springForceEades(edge: Edge): Vector {
         let r_vec = edge.source.pos.to(edge.target.pos);
         let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul(springFactor * Math.log(d / idealSpringLength));
+        let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / IDEAL_SPRING_LENGTH));
         return force
     }
 
+    // Keep unconnected Vertices apart
     electricalForceEades(v1: Vertex, v2: Vertex): Vector {
         let r_vec = v2.pos.to(v1.pos);
         let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul(electricalFactor / Math.sqrt(d));
+        let force = r_vec.mul(1 / d).mul(ELECTRICAL_FACTOR / Math.sqrt(d));
         return force;
     }
 }
 
+
+/*** APP START ***/
+
 window.onload = () => {
-    new SpringEmbedder();
+    fetch('../data/graph.json')
+        .then((response) => response.json() as unknown as GraphData)
+        .then((json) => start(json));
+}
+
+function start(data: GraphData) {
+    canvas = document.getElementById("frame") as HTMLCanvasElement;
+    context = canvas.getContext("2d");
+
+    new SpringEmbedder(data);
 }

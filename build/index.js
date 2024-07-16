@@ -1,10 +1,10 @@
 var dt = 1 / 50;
 var springFactor = 3;
-var idealSpringLength = 30;
-var electricalFactor = 2;
+var idealSpringLength = 50;
+var electricalFactor = 3;
 var velocityFactor = 100;
-var gravityRadius = 500;
-var gravityFactor = 5000;
+var gravityRadius = 700;
+var gravityFactor = 15000;
 var Vector = (function () {
     function Vector(x, y) {
         this.x = x;
@@ -19,9 +19,10 @@ var Vector = (function () {
 }());
 var ZERO_VECTOR = new Vector(0, 0);
 var Vertex = (function () {
-    function Vertex(pos) {
+    function Vertex(pos, key) {
         this.pos = pos;
         this.force = ZERO_VECTOR;
+        this.key = key;
     }
     Vertex.prototype.applyForce = function (force) { this.force = this.force.add(force); };
     Vertex.prototype.step = function () {
@@ -38,15 +39,19 @@ var Edge = (function () {
     return Edge;
 }());
 var Graph = (function () {
-    function Graph() {
+    function Graph(data) {
+        var _this = this;
         this.vertices = new Array();
         this.edges = new Array();
-        for (var i = 0; i < 70; i++) {
-            this.vertices.push(new Vertex(new Vector(150 + Math.random() * 700, 150 + Math.random() * 700)));
-        }
-        for (var i = 0; i < 70; i++) {
-            this.edges.push(new Edge(this.vertices[i], this.vertices[Math.floor(Math.random() * 70)]));
-        }
+        this.keyToVertex = {};
+        data.vertices.forEach(function (vdata) {
+            var vertex = new Vertex(new Vector(Math.random() * window.innerWidth, Math.random() * window.innerHeight), vdata.key);
+            _this.keyToVertex[vdata.key] = vertex;
+            _this.vertices.push(vertex);
+        });
+        data.edges.forEach(function (edata) {
+            _this.edges.push(new Edge(_this.keyToVertex[edata.source], _this.keyToVertex[edata.target]));
+        });
     }
     Graph.prototype.areAdjacent = function (v1, v2) {
         this.edges.forEach(function (spring) {
@@ -89,10 +94,10 @@ var Renderer = (function () {
     return Renderer;
 }());
 var SpringEmbedder = (function () {
-    function SpringEmbedder() {
+    function SpringEmbedder(data) {
         var _this = this;
         this.renderer = new Renderer();
-        this.graph = new Graph();
+        this.graph = new Graph(data);
         this.graph.vertices.forEach(function (particle) {
             _this.renderer.drawParticle(particle);
         });
@@ -156,5 +161,10 @@ var SpringEmbedder = (function () {
     return SpringEmbedder;
 }());
 window.onload = function () {
-    new SpringEmbedder();
+    fetch('../data/graph.json')
+        .then(function (response) { return response.json(); })
+        .then(function (json) { return start(json); });
 };
+function start(data) {
+    new SpringEmbedder(data);
+}
