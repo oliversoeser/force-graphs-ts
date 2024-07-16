@@ -1,10 +1,11 @@
 # ToDo
 
+- Better graph representation for faster adjacency checks
+- Refactor recent code
+- Centred zoom
+- Info about vertices
+- Manually moving vertices
 - Dataset selection screen
 - Loading screen
 - Explore alternative algorithms
-- Manually moving vertices
-- Info about vertices
-- Better graph representation for faster adjacency checks
-- More effective repulsive force
 - Mobile compatibility

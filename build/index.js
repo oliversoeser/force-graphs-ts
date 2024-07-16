@@ -54,6 +54,7 @@ var Edge = (function () {
     }
     return Edge;
 }());
+var degree;
 var Graph = (function () {
     function Graph(data) {
         var _this = this;
@@ -61,10 +62,12 @@ var Graph = (function () {
         this.edges = new Array();
         this.keyToVertex = {};
         this.adjacency = {};
+        degree = {};
         data.vertices.forEach(function (vdata) {
             var vertex = new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), vdata.key);
             _this.keyToVertex[vdata.key] = vertex;
             _this.vertices.push(vertex);
+            degree[vdata.key] = 0;
             data.vertices.forEach(function (vdata2) {
                 _this.adjacency[vdata.key + vdata2.key] = false;
                 _this.adjacency[vdata2.key + vdata.key] = false;
@@ -74,6 +77,8 @@ var Graph = (function () {
             _this.edges.push(new Edge(_this.keyToVertex[edata.source], _this.keyToVertex[edata.target]));
             _this.adjacency[edata.source + edata.target] = true;
             _this.adjacency[edata.target + edata.source] = true;
+            degree[edata.source] += 1;
+            degree[edata.target] += 1;
         });
     }
     Graph.prototype.areAdjacent = function (v1, v2) {
@@ -92,7 +97,7 @@ var Renderer = (function () {
     Renderer.prototype.drawVertex = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         context.beginPath();
-        context.arc(pos.x, pos.y, VERTEX_RADIUS * zoomFactor, 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.key]), 0, 2 * Math.PI);
         context.stroke();
     };
     Renderer.prototype.drawEdge = function (edge) {
@@ -164,13 +169,13 @@ var SpringEmbedder = (function () {
     SpringEmbedder.prototype.springForceEades = function (edge) {
         var r_vec = edge.source.pos.to(edge.target.pos);
         var d = Math.max(r_vec.size(), 1);
-        var force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / IDEAL_SPRING_LENGTH));
+        var force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / (IDEAL_SPRING_LENGTH + VERTEX_RADIUS * Math.sqrt(degree[edge.source.key] * degree[edge.target.key]))));
         return force;
     };
     SpringEmbedder.prototype.electricalForceEades = function (v1, v2) {
         var r_vec = v2.pos.to(v1.pos);
         var d = Math.max(r_vec.size(), 1);
-        var force = r_vec.mul(1 / d).mul(ELECTRICAL_FACTOR / Math.sqrt(d));
+        var force = r_vec.mul(1 / d).mul(Math.pow((degree[v1.key] * degree[v2.key]), (1 / 5)) * ELECTRICAL_FACTOR / Math.sqrt(d));
         return force;
     };
     return SpringEmbedder;
@@ -200,8 +205,8 @@ var App = (function () {
             zoomFactor = _this.zoomFactorFunction(cameraZoom);
         });
     }
-    App.prototype.zoomFactorFunction = function (x) {
-        return Math.max(Math.exp(x / 5000), 0.2);
+    App.prototype.zoomFactorFunction = function (zoom) {
+        return Math.max(Math.exp(zoom / 5000), 0.2);
     };
     return App;
 }());

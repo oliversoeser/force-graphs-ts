@@ -116,6 +116,8 @@ class Edge {
     }
 }
 
+let degree: Dictionary<number>;
+
 class Graph {
     public vertices: Vertex[];
     public edges: Edge[];
@@ -128,11 +130,14 @@ class Graph {
 
         this.keyToVertex = {};
         this.adjacency = {};
+        degree = {};
 
         data.vertices.forEach(vdata => {
             let vertex = new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), vdata.key)
             this.keyToVertex[vdata.key] = vertex;
             this.vertices.push(vertex);
+
+            degree[vdata.key] = 0;
 
             data.vertices.forEach(vdata2 => {
                 this.adjacency[vdata.key + vdata2.key] = false;
@@ -144,6 +149,8 @@ class Graph {
             this.edges.push(new Edge(this.keyToVertex[edata.source], this.keyToVertex[edata.target]));
             this.adjacency[edata.source + edata.target] = true;
             this.adjacency[edata.target + edata.source] = true;
+            degree[edata.source] += 1;
+            degree[edata.target] += 1;
         });
     }
 
@@ -169,7 +176,7 @@ class Renderer {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
         context.beginPath();
-        context.arc(pos.x, pos.y, VERTEX_RADIUS*zoomFactor, 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.key]), 0, 2 * Math.PI);
         context.stroke();
     }
 
@@ -270,7 +277,7 @@ class SpringEmbedder {
     springForceEades(edge: Edge): Vector {
         let r_vec = edge.source.pos.to(edge.target.pos);
         let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / IDEAL_SPRING_LENGTH));
+        let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / (IDEAL_SPRING_LENGTH + VERTEX_RADIUS * Math.sqrt(degree[edge.source.key] * degree[edge.target.key]))));
         return force
     }
 
@@ -278,7 +285,7 @@ class SpringEmbedder {
     electricalForceEades(v1: Vertex, v2: Vertex): Vector {
         let r_vec = v2.pos.to(v1.pos);
         let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul(ELECTRICAL_FACTOR / Math.sqrt(d));
+        let force = r_vec.mul(1 / d).mul((degree[v1.key] * degree[v2.key])**(1/5) * ELECTRICAL_FACTOR / Math.sqrt(d));
         return force;
     }
 }
@@ -321,8 +328,8 @@ class App {
         })
     }
 
-    zoomFactorFunction(x: number) {
-        return Math.max(Math.exp(x/5000), 0.2);
+    zoomFactorFunction(zoom: number) {
+        return Math.max(Math.exp(zoom/5000), 0.2);
     }
 }
 
