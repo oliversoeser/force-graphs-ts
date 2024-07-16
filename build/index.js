@@ -1,4 +1,11 @@
+var MouseAction;
+(function (MouseAction) {
+    MouseAction[MouseAction["None"] = 0] = "None";
+    MouseAction[MouseAction["MoveCamera"] = 1] = "MoveCamera";
+    MouseAction[MouseAction["MoveVertex"] = 2] = "MoveVertex";
+})(MouseAction || (MouseAction = {}));
 var DT = 1 / 50;
+var EXECUTION_FACTOR = 1;
 var SPRING_FACTOR = 3;
 var ELECTRICAL_FACTOR = 3;
 var VELOCITY_FACTOR = 100;
@@ -10,6 +17,7 @@ var VERTEX_STYLE = "black";
 var EDGE_STYLE = "black";
 var canvas;
 var context;
+var cameraPos;
 var Vector = (function () {
     function Vector(x, y) {
         this.x = x;
@@ -23,6 +31,7 @@ var Vector = (function () {
     return Vector;
 }());
 var ZERO_VECTOR = new Vector(0, 0);
+var SECOND = 1000;
 var Vertex = (function () {
     function Vertex(pos, key) {
         this.pos = pos;
@@ -79,14 +88,14 @@ var Renderer = (function () {
     Renderer.prototype.drawVertex = function (vertex) {
         var pos = vertex.pos;
         context.beginPath();
-        context.arc(pos.x, pos.y, VERTEX_RADIUS, 0, 2 * Math.PI);
+        context.arc(pos.x + cameraPos.x, pos.y + cameraPos.y, VERTEX_RADIUS, 0, 2 * Math.PI);
         context.stroke();
     };
     Renderer.prototype.drawEdge = function (edge) {
         var start = edge.source.pos;
         var end = edge.target.pos;
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
+        context.moveTo(start.x + cameraPos.x, start.y + cameraPos.y);
+        context.lineTo(end.x + cameraPos.x, end.y + cameraPos.y);
         context.stroke();
     };
     Renderer.prototype.clear = function () {
@@ -105,7 +114,7 @@ var SpringEmbedder = (function () {
         this.graph.edges.forEach(function (edge) {
             _this.renderer.drawEdge(edge);
         });
-        setInterval(this.step.bind(this), 1000 * DT);
+        setInterval(this.step.bind(this), EXECUTION_FACTOR * DT * SECOND);
     }
     SpringEmbedder.prototype.step = function () {
         this.stepEades();
@@ -162,6 +171,29 @@ var SpringEmbedder = (function () {
     };
     return SpringEmbedder;
 }());
+var App = (function () {
+    function App(data) {
+        var _this = this;
+        this.springEmbedder = new SpringEmbedder(data);
+        this.currentMouseAction = MouseAction.None;
+        this.mousePos = ZERO_VECTOR;
+        canvas.addEventListener("mousedown", function (ev) {
+            _this.currentMouseAction = MouseAction.MoveCamera;
+        });
+        canvas.addEventListener("mousemove", function (ev) {
+            var newMousePos = new Vector(ev.x, ev.y);
+            if (_this.currentMouseAction == MouseAction.MoveCamera) {
+                var delta = _this.mousePos.to(newMousePos);
+                cameraPos = cameraPos.add(delta);
+            }
+            _this.mousePos = newMousePos;
+        });
+        canvas.addEventListener("mouseup", function (ev) {
+            _this.currentMouseAction = MouseAction.None;
+        });
+    }
+    return App;
+}());
 window.onload = function () {
     fetch('../data/graph.json')
         .then(function (response) { return response.json(); })
@@ -170,5 +202,6 @@ window.onload = function () {
 function start(data) {
     canvas = document.getElementById("frame");
     context = canvas.getContext("2d");
-    new SpringEmbedder(data);
+    cameraPos = ZERO_VECTOR;
+    new App(data);
 }

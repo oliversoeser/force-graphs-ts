@@ -1,4 +1,4 @@
-/*** INTERFACES AND TYPES ***/
+/*** INTERFACES, TYPES, and ENUMS ***/
 
 // Dictionary Interface
 interface Dictionary<T> {
@@ -10,11 +10,21 @@ type VertexData = { key: string; };
 type EdgeData = { source: string; target: string; };
 type GraphData = { vertices: VertexData[]; edges: EdgeData[]; };
 
+// User Actions
+enum MouseAction {
+    None,
+    MoveCamera,
+    MoveVertex
+}
+
 
 /*** CONSTANTS ***/
 
 // Delta Time
 const DT = 1 / 50;
+
+// Execution speed
+const EXECUTION_FACTOR = 1;
 
 // Force Coefficients
 const SPRING_FACTOR = 3;
@@ -34,17 +44,18 @@ const VERTEX_STYLE = "black";
 const EDGE_STYLE = "black";
 
 
-/*** VARIABLES ***/
+/*** GLOBAL VARIABLES ***/
 
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 
+let cameraPos: Vector;
 
 /*** MATHEMATICS ***/
 
 class Vector {
-    public x: number;
-    public y: number;
+    public readonly x: number;
+    public readonly y: number;
 
     constructor(x: number, y: number) {
         this.x = x;
@@ -65,7 +76,9 @@ class Vector {
     mul(factor: number): Vector { return new Vector(this.x * factor, this.y * factor); }
 }
 
+/*** MATHEMATICAL CONSTANTS ***/
 const ZERO_VECTOR = new Vector(0, 0);
+const SECOND = 1000;
 
 
 /*** GRAPHS ***/
@@ -73,7 +86,7 @@ const ZERO_VECTOR = new Vector(0, 0);
 class Vertex {
     public pos: Vector; // Position
     private force: Vector; // Total force applied in the current step
-    public key: string;
+    public readonly key: string;
 
     constructor(pos: Vector, key: string) {
         this.pos = pos;
@@ -92,8 +105,8 @@ class Vertex {
 }
 
 class Edge {
-    public source: Vertex;
-    public target: Vertex;
+    public readonly source: Vertex;
+    public readonly target: Vertex;
 
     constructor(source: Vertex, target: Vertex) {
         this.source = source;
@@ -150,7 +163,7 @@ class Renderer {
         let pos = vertex.pos;
 
         context.beginPath();
-        context.arc(pos.x, pos.y, VERTEX_RADIUS, 0, 2 * Math.PI);
+        context.arc(pos.x + cameraPos.x, pos.y + cameraPos.y, VERTEX_RADIUS, 0, 2 * Math.PI);
         context.stroke();
     }
 
@@ -158,8 +171,8 @@ class Renderer {
         let start = edge.source.pos;
         let end = edge.target.pos;
 
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
+        context.moveTo(start.x + cameraPos.x, start.y + cameraPos.y);
+        context.lineTo(end.x + cameraPos.x, end.y + cameraPos.y);
         context.stroke();
     }
 
@@ -172,8 +185,8 @@ class Renderer {
 /*** FORCE DIRECTED GRAPH ALGORITHM ***/
 
 class SpringEmbedder {
-    private renderer: Renderer;
-    private graph: Graph;
+    private readonly renderer: Renderer;
+    private readonly graph: Graph;
 
     constructor(data: GraphData) {
         this.renderer = new Renderer();
@@ -187,7 +200,7 @@ class SpringEmbedder {
             this.renderer.drawEdge(edge);
         });
 
-        setInterval(this.step.bind(this), 1000 * DT);
+        setInterval(this.step.bind(this), EXECUTION_FACTOR * DT * SECOND);
     }
 
     step() {
@@ -264,6 +277,40 @@ class SpringEmbedder {
     }
 }
 
+class App {
+    private readonly springEmbedder: SpringEmbedder;
+
+    private currentMouseAction: MouseAction;
+    private mousePos: Vector;
+
+    constructor(data: GraphData) {
+        this.springEmbedder = new SpringEmbedder(data)
+        
+        this.currentMouseAction = MouseAction.None;
+        this.mousePos = ZERO_VECTOR;
+
+        canvas.addEventListener("mousedown", (ev: MouseEvent) => {
+            this.currentMouseAction = MouseAction.MoveCamera;
+        });
+
+        canvas.addEventListener("mousemove", (ev: MouseEvent) => {
+            let newMousePos = new Vector(ev.x, ev.y);
+
+            // Move Camera
+            if (this.currentMouseAction == MouseAction.MoveCamera) {
+                let delta = this.mousePos.to(newMousePos);
+                cameraPos = cameraPos.add(delta);
+            }
+
+            this.mousePos = newMousePos;
+        });
+
+        canvas.addEventListener("mouseup", (ev: MouseEvent) => {
+            this.currentMouseAction = MouseAction.None;
+        });
+    }
+}
+
 
 /*** APP START ***/
 
@@ -277,5 +324,7 @@ function start(data: GraphData) {
     canvas = document.getElementById("frame") as HTMLCanvasElement;
     context = canvas.getContext("2d");
 
-    new SpringEmbedder(data);
+    cameraPos = ZERO_VECTOR;
+
+    new App(data);
 }

@@ -3,7 +3,7 @@
 - Dataset selection screen
 - Loading screen
 - Explore alternative algorithms
-- Interaction through moving and zooming the camera
+- Zoom
 - Manually moving vertices
 - Info about vertices
 - Better graph representation for faster adjacency checks
