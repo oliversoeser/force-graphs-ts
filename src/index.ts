@@ -50,6 +50,8 @@ let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 
 let cameraPos: Vector;
+let cameraZoom: number;
+let zoomFactor: number;
 
 /*** MATHEMATICS ***/
 
@@ -160,19 +162,19 @@ class Renderer {
     }
 
     drawVertex(vertex: Vertex) {
-        let pos = vertex.pos;
+        let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
         context.beginPath();
-        context.arc(pos.x + cameraPos.x, pos.y + cameraPos.y, VERTEX_RADIUS, 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, VERTEX_RADIUS*zoomFactor, 0, 2 * Math.PI);
         context.stroke();
     }
 
     drawEdge(edge: Edge) {
-        let start = edge.source.pos;
-        let end = edge.target.pos;
+        let start = edge.source.pos.add(cameraPos).mul(zoomFactor);
+        let end = edge.target.pos.add(cameraPos).mul(zoomFactor);
 
-        context.moveTo(start.x + cameraPos.x, start.y + cameraPos.y);
-        context.lineTo(end.x + cameraPos.x, end.y + cameraPos.y);
+        context.moveTo(start.x, start.y);
+        context.lineTo(end.x, end.y);
         context.stroke();
     }
 
@@ -308,6 +310,15 @@ class App {
         canvas.addEventListener("mouseup", (ev: MouseEvent) => {
             this.currentMouseAction = MouseAction.None;
         });
+
+        canvas.addEventListener("wheel", (ev: WheelEvent) => {
+            cameraZoom += ev.deltaY * -1;
+            zoomFactor = this.zoomFactorFunction(cameraZoom);
+        })
+    }
+
+    zoomFactorFunction(x: number) {
+        return Math.max(Math.exp(x/5000), 0.2);
     }
 }
 
@@ -325,6 +336,8 @@ function start(data: GraphData) {
     context = canvas.getContext("2d");
 
     cameraPos = ZERO_VECTOR;
+    cameraZoom = 0;
+    zoomFactor = 1;
 
     new App(data);
 }

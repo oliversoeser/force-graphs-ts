@@ -18,6 +18,8 @@ var EDGE_STYLE = "black";
 var canvas;
 var context;
 var cameraPos;
+var cameraZoom;
+var zoomFactor;
 var Vector = (function () {
     function Vector(x, y) {
         this.x = x;
@@ -86,16 +88,16 @@ var Renderer = (function () {
         canvas.height = window.innerHeight + 1;
     };
     Renderer.prototype.drawVertex = function (vertex) {
-        var pos = vertex.pos;
+        var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         context.beginPath();
-        context.arc(pos.x + cameraPos.x, pos.y + cameraPos.y, VERTEX_RADIUS, 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, VERTEX_RADIUS * zoomFactor, 0, 2 * Math.PI);
         context.stroke();
     };
     Renderer.prototype.drawEdge = function (edge) {
-        var start = edge.source.pos;
-        var end = edge.target.pos;
-        context.moveTo(start.x + cameraPos.x, start.y + cameraPos.y);
-        context.lineTo(end.x + cameraPos.x, end.y + cameraPos.y);
+        var start = edge.source.pos.add(cameraPos).mul(zoomFactor);
+        var end = edge.target.pos.add(cameraPos).mul(zoomFactor);
+        context.moveTo(start.x, start.y);
+        context.lineTo(end.x, end.y);
         context.stroke();
     };
     Renderer.prototype.clear = function () {
@@ -191,7 +193,14 @@ var App = (function () {
         canvas.addEventListener("mouseup", function (ev) {
             _this.currentMouseAction = MouseAction.None;
         });
+        canvas.addEventListener("wheel", function (ev) {
+            cameraZoom += ev.deltaY * -1;
+            zoomFactor = _this.zoomFactorFunction(cameraZoom);
+        });
     }
+    App.prototype.zoomFactorFunction = function (x) {
+        return Math.max(Math.exp(x / 5000), 0.2);
+    };
     return App;
 }());
 window.onload = function () {
@@ -203,5 +212,7 @@ function start(data) {
     canvas = document.getElementById("frame");
     context = canvas.getContext("2d");
     cameraPos = ZERO_VECTOR;
+    cameraZoom = 0;
+    zoomFactor = 1;
     new App(data);
 }
