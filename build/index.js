@@ -20,6 +20,7 @@ var context;
 var cameraPos;
 var cameraZoom;
 var zoomFactor;
+var selectedVertex;
 var Vector = (function () {
     function Vector(x, y) {
         this.x = x;
@@ -85,7 +86,6 @@ var Graph = (function () {
             adjacency[sId][tId] = 1;
             adjacency[tId][sId] = 1;
         });
-        console.log(degree);
     }
     return Graph;
 }());
@@ -102,6 +102,12 @@ var Renderer = (function () {
         context.beginPath();
         context.arc(pos.x, pos.y, VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
         context.stroke();
+        if (vertex == selectedVertex) {
+            context.fillStyle = "red";
+            context.font = "".concat(10 * zoomFactor * Math.cbrt(degree[vertex.id]), "px Arial");
+            context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width / 2, pos.y);
+            context.fillStyle = VERTEX_STYLE;
+        }
     };
     Renderer.prototype.drawEdge = function (edge) {
         var start = edge.source.pos.add(cameraPos).mul(zoomFactor);
@@ -157,14 +163,14 @@ var SpringEmbedder = (function () {
         var _this = this;
         this.renderer.fitCanvasToWindow();
         this.renderer.clear();
+        context.strokeStyle = EDGE_STYLE;
+        this.graph.edges.forEach(function (edge) {
+            _this.renderer.drawEdge(edge);
+        });
         context.strokeStyle = VERTEX_STYLE;
         this.graph.vertices.forEach(function (vertex) {
             vertex.step();
             _this.renderer.drawVertex(vertex);
-        });
-        context.strokeStyle = EDGE_STYLE;
-        this.graph.edges.forEach(function (edge) {
-            _this.renderer.drawEdge(edge);
         });
     };
     SpringEmbedder.prototype.gravityOrigin = function (vertex) {
@@ -193,8 +199,14 @@ var App = (function () {
         this.springEmbedder = new SpringEmbedder(data);
         this.currentMouseAction = MouseAction.None;
         this.mousePos = ZERO_VECTOR;
+        selectedVertex = undefined;
         canvas.addEventListener("mousedown", function (ev) {
             _this.currentMouseAction = MouseAction.MoveCamera;
+            _this.springEmbedder.graph.vertices.forEach(function (vertex) {
+                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id])) {
+                    selectedVertex = vertex;
+                }
+            });
         });
         canvas.addEventListener("mousemove", function (ev) {
             var newMousePos = new Vector(ev.x, ev.y);
@@ -209,10 +221,10 @@ var App = (function () {
         });
         canvas.addEventListener("wheel", function (ev) {
             cameraZoom += ev.deltaY * -1;
-            zoomFactor = _this.zoomFactorFunction(cameraZoom);
+            zoomFactor = _this.zoomFactor(cameraZoom);
         });
     }
-    App.prototype.zoomFactorFunction = function (zoom) {
+    App.prototype.zoomFactor = function (zoom) {
         return Math.max(Math.exp(zoom / 5000), 0.2);
     };
     return App;

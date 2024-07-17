@@ -1,6 +1,5 @@
 # ToDo
 
-- Info about vertices
 - Manually moving vertices
 - Dataset selection screen
 - Loading screen

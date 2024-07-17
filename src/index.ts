@@ -53,6 +53,9 @@ let cameraPos: Vector;
 let cameraZoom: number;
 let zoomFactor: number;
 
+let selectedVertex: Vertex;
+
+
 /*** MATHEMATICS ***/
 
 class Vector {
@@ -162,7 +165,6 @@ class Graph {
             adjacency[sId][tId] = 1;
             adjacency[tId][sId] = 1;
         });
-        console.log(degree);
     }
 }
 
@@ -185,6 +187,13 @@ class Renderer {
         context.beginPath();
         context.arc(pos.x, pos.y, VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
         context.stroke();
+
+        if (vertex == selectedVertex) {
+            context.fillStyle = "red";
+            context.font = `${10*zoomFactor*Math.cbrt(degree[vertex.id])}px Arial`;
+            context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width/2, pos.y);
+            context.fillStyle = VERTEX_STYLE;
+        }
     }
 
     drawEdge(edge: Edge) {
@@ -206,7 +215,7 @@ class Renderer {
 
 class SpringEmbedder {
     private readonly renderer: Renderer;
-    private readonly graph: Graph;
+    public readonly graph: Graph;
 
     constructor(data: GraphData) {
         this.renderer = new Renderer();
@@ -258,17 +267,17 @@ class SpringEmbedder {
         this.renderer.fitCanvasToWindow();
         this.renderer.clear();
 
+        // Draw Edges
+        context.strokeStyle = EDGE_STYLE;
+        this.graph.edges.forEach(edge => {
+            this.renderer.drawEdge(edge);
+        });
+
         // Draw Vertices
         context.strokeStyle = VERTEX_STYLE;
         this.graph.vertices.forEach(vertex => {
             vertex.step();
             this.renderer.drawVertex(vertex);
-        });
-
-        // Draw Edges
-        context.strokeStyle = EDGE_STYLE;
-        this.graph.edges.forEach(edge => {
-            this.renderer.drawEdge(edge);
         });
     }
 
@@ -309,8 +318,16 @@ class App {
         this.currentMouseAction = MouseAction.None;
         this.mousePos = ZERO_VECTOR;
 
+        selectedVertex = undefined;
+
         canvas.addEventListener("mousedown", (ev: MouseEvent) => {
             this.currentMouseAction = MouseAction.MoveCamera;
+
+            this.springEmbedder.graph.vertices.forEach(vertex => {
+                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id])) {
+                    selectedVertex = vertex;
+                }
+            });
         });
 
         canvas.addEventListener("mousemove", (ev: MouseEvent) => {
