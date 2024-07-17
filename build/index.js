@@ -4,7 +4,7 @@ var MouseAction;
     MouseAction[MouseAction["MoveCamera"] = 1] = "MoveCamera";
     MouseAction[MouseAction["MoveVertex"] = 2] = "MoveVertex";
 })(MouseAction || (MouseAction = {}));
-var DT = 1 / 50;
+var DT = 1 / 30;
 var EXECUTION_FACTOR = 1;
 var SPRING_FACTOR = 3;
 var ELECTRICAL_FACTOR = 3;
@@ -35,10 +35,12 @@ var Vector = (function () {
 var ZERO_VECTOR = new Vector(0, 0);
 var SECOND = 1000;
 var Vertex = (function () {
-    function Vertex(pos, key) {
+    function Vertex(pos, id, name, title) {
         this.pos = pos;
         this.force = ZERO_VECTOR;
-        this.key = key;
+        this.id = id;
+        this.name = name;
+        this.title = title;
     }
     Vertex.prototype.applyForce = function (force) { this.force = this.force.add(force); };
     Vertex.prototype.step = function () {
@@ -55,35 +57,36 @@ var Edge = (function () {
     return Edge;
 }());
 var degree;
+var adjacency;
 var Graph = (function () {
     function Graph(data) {
         var _this = this;
         this.vertices = new Array();
         this.edges = new Array();
-        this.keyToVertex = {};
-        this.adjacency = {};
-        degree = {};
-        data.vertices.forEach(function (vdata) {
-            var vertex = new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), vdata.key);
-            _this.keyToVertex[vdata.key] = vertex;
-            _this.vertices.push(vertex);
-            degree[vdata.key] = 0;
-            data.vertices.forEach(function (vdata2) {
-                _this.adjacency[vdata.key + vdata2.key] = false;
-                _this.adjacency[vdata2.key + vdata.key] = false;
-            });
-        });
+        this.nameToId = {};
+        degree = new Array();
+        adjacency = new Array();
+        for (var id = 0; id < data.vertices.length; id++) {
+            var vdata = data.vertices[id];
+            this.nameToId[vdata.name] = id;
+            this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title));
+            degree.push(0);
+            adjacency.push([]);
+            for (var j = 0; j < data.vertices.length; j++) {
+                adjacency[id][j] = 0;
+            }
+        }
         data.edges.forEach(function (edata) {
-            _this.edges.push(new Edge(_this.keyToVertex[edata.source], _this.keyToVertex[edata.target]));
-            _this.adjacency[edata.source + edata.target] = true;
-            _this.adjacency[edata.target + edata.source] = true;
-            degree[edata.source] += 1;
-            degree[edata.target] += 1;
+            var sId = _this.nameToId[edata.sourcename];
+            var tId = _this.nameToId[edata.targetname];
+            _this.edges.push(new Edge(_this.vertices[sId], _this.vertices[tId]));
+            degree[sId]++;
+            degree[tId]++;
+            adjacency[sId][tId] = 1;
+            adjacency[tId][sId] = 1;
         });
+        console.log(degree);
     }
-    Graph.prototype.areAdjacent = function (v1, v2) {
-        return this.adjacency[v1.key + v2.key];
-    };
     return Graph;
 }());
 var Renderer = (function () {
@@ -97,7 +100,7 @@ var Renderer = (function () {
     Renderer.prototype.drawVertex = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         context.beginPath();
-        context.arc(pos.x, pos.y, VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.key]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
         context.stroke();
     };
     Renderer.prototype.drawEdge = function (edge) {
@@ -131,15 +134,19 @@ var SpringEmbedder = (function () {
     };
     SpringEmbedder.prototype.stepEades = function () {
         var _this = this;
-        this.graph.vertices.forEach(function (vertex) {
-            vertex.applyForce(_this.gravityOrigin(vertex));
-            _this.graph.vertices.forEach(function (other) {
-                var adjacent = _this.graph.areAdjacent(vertex, other);
-                if (!adjacent) {
+        var _loop_1 = function (id) {
+            var vertex = this_1.graph.vertices[id];
+            vertex.applyForce(this_1.gravityOrigin(vertex));
+            this_1.graph.vertices.forEach(function (other) {
+                if (!adjacency[vertex.id][other.id]) {
                     vertex.applyForce(_this.electricalForceEades(vertex, other));
                 }
             });
-        });
+        };
+        var this_1 = this;
+        for (var id = 0; id < this.graph.vertices.length; id++) {
+            _loop_1(id);
+        }
         this.graph.edges.forEach(function (edge) {
             var force = _this.springForceEades(edge);
             edge.source.applyForce(force);
@@ -169,13 +176,13 @@ var SpringEmbedder = (function () {
     SpringEmbedder.prototype.springForceEades = function (edge) {
         var r_vec = edge.source.pos.to(edge.target.pos);
         var d = Math.max(r_vec.size(), 1);
-        var force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / (IDEAL_SPRING_LENGTH + VERTEX_RADIUS * Math.sqrt(degree[edge.source.key] * degree[edge.target.key]))));
+        var force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / (IDEAL_SPRING_LENGTH + VERTEX_RADIUS * Math.sqrt(degree[edge.source.id] * degree[edge.target.id]))));
         return force;
     };
     SpringEmbedder.prototype.electricalForceEades = function (v1, v2) {
         var r_vec = v2.pos.to(v1.pos);
         var d = Math.max(r_vec.size(), 1);
-        var force = r_vec.mul(1 / d).mul(Math.pow((degree[v1.key] * degree[v2.key]), (1 / 5)) * ELECTRICAL_FACTOR / Math.sqrt(d));
+        var force = r_vec.mul(1 / d).mul(Math.pow((degree[v1.id] * degree[v2.id]), (1 / 5)) * ELECTRICAL_FACTOR / Math.sqrt(d));
         return force;
     };
     return SpringEmbedder;

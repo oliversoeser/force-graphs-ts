@@ -6,8 +6,8 @@ interface Dictionary<T> {
 }
 
 // Graph Data representation
-type VertexData = { key: string; };
-type EdgeData = { source: string; target: string; };
+type VertexData = { name: string; title: string; };
+type EdgeData = { sourcename: string; targetname: string; };
 type GraphData = { vertices: VertexData[]; edges: EdgeData[]; };
 
 // User Actions
@@ -21,7 +21,7 @@ enum MouseAction {
 /*** CONSTANTS ***/
 
 // Delta Time
-const DT = 1 / 50;
+const DT = 1 / 30;
 
 // Execution speed
 const EXECUTION_FACTOR = 1;
@@ -88,12 +88,16 @@ const SECOND = 1000;
 class Vertex {
     public pos: Vector; // Position
     private force: Vector; // Total force applied in the current step
-    public readonly key: string;
+    public readonly id: number;
+    public readonly name: string;
+    public readonly title: string;
 
-    constructor(pos: Vector, key: string) {
+    constructor(pos: Vector, id: number, name: string, title: string) {
         this.pos = pos;
         this.force = ZERO_VECTOR;
-        this.key = key;
+        this.id = id;
+        this.name = name;
+        this.title = title;
     }
 
     // Sum forces
@@ -116,46 +120,49 @@ class Edge {
     }
 }
 
-let degree: Dictionary<number>;
+let degree: number[];
+let adjacency: number[][];
 
 class Graph {
     public vertices: Vertex[];
     public edges: Edge[];
-    public keyToVertex: Dictionary<Vertex>;
-    public adjacency: Dictionary<boolean>;
+
+    public nameToId: Dictionary<number>;
 
     constructor(data: GraphData) {
         this.vertices = new Array();
         this.edges = new Array();
 
-        this.keyToVertex = {};
-        this.adjacency = {};
-        degree = {};
+        this.nameToId = {};
 
-        data.vertices.forEach(vdata => {
-            let vertex = new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), vdata.key)
-            this.keyToVertex[vdata.key] = vertex;
-            this.vertices.push(vertex);
+        degree = new Array();
+        adjacency = new Array();
 
-            degree[vdata.key] = 0;
+        for (let id = 0; id < data.vertices.length; id++) {
+            let vdata = data.vertices[id];
+            this.nameToId[vdata.name] = id;
+            this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title));
+            degree.push(0);
+            adjacency.push([]);
 
-            data.vertices.forEach(vdata2 => {
-                this.adjacency[vdata.key + vdata2.key] = false;
-                this.adjacency[vdata2.key + vdata.key] = false;
-            });
-        });
+            for (let j = 0; j < data.vertices.length; j++) {
+                adjacency[id][j] = 0;
+            }
+        }
 
         data.edges.forEach(edata => {
-            this.edges.push(new Edge(this.keyToVertex[edata.source], this.keyToVertex[edata.target]));
-            this.adjacency[edata.source + edata.target] = true;
-            this.adjacency[edata.target + edata.source] = true;
-            degree[edata.source] += 1;
-            degree[edata.target] += 1;
-        });
-    }
+            let sId = this.nameToId[edata.sourcename];
+            let tId = this.nameToId[edata.targetname];
 
-    areAdjacent(v1: Vertex, v2: Vertex): boolean {
-        return this.adjacency[v1.key + v2.key];
+            this.edges.push(new Edge(this.vertices[sId], this.vertices[tId]));
+
+            degree[sId]++;
+            degree[tId]++;
+
+            adjacency[sId][tId] = 1;
+            adjacency[tId][sId] = 1;
+        });
+        console.log(degree);
     }
 }
 
@@ -176,7 +183,7 @@ class Renderer {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
         context.beginPath();
-        context.arc(pos.x, pos.y, VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.key]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
         context.stroke();
     }
 
@@ -223,19 +230,19 @@ class SpringEmbedder {
 
     // Eades' SPRING Algorithm
     stepEades() {
-        this.graph.vertices.forEach(vertex => {
+        for (let id = 0; id < this.graph.vertices.length; id++) {
+            let vertex = this.graph.vertices[id];
+
             // Gravity to Origin
             vertex.applyForce(this.gravityOrigin(vertex));
 
             // Repulsion
             this.graph.vertices.forEach(other => {
-                let adjacent = this.graph.areAdjacent(vertex, other);
-
-                if (!adjacent) {
+                if (!adjacency[vertex.id][other.id]) {
                     vertex.applyForce(this.electricalForceEades(vertex, other));
                 }
             });
-        });
+        }
 
         // Spring forces
         this.graph.edges.forEach(edge => {
@@ -277,7 +284,7 @@ class SpringEmbedder {
     springForceEades(edge: Edge): Vector {
         let r_vec = edge.source.pos.to(edge.target.pos);
         let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / (IDEAL_SPRING_LENGTH + VERTEX_RADIUS * Math.sqrt(degree[edge.source.key] * degree[edge.target.key]))));
+        let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / (IDEAL_SPRING_LENGTH + VERTEX_RADIUS * Math.sqrt(degree[edge.source.id] * degree[edge.target.id]))));
         return force
     }
 
@@ -285,7 +292,7 @@ class SpringEmbedder {
     electricalForceEades(v1: Vertex, v2: Vertex): Vector {
         let r_vec = v2.pos.to(v1.pos);
         let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul((degree[v1.key] * degree[v2.key])**(1/5) * ELECTRICAL_FACTOR / Math.sqrt(d));
+        let force = r_vec.mul(1 / d).mul((degree[v1.id] * degree[v2.id])**(1/5) * ELECTRICAL_FACTOR / Math.sqrt(d));
         return force;
     }
 }
@@ -324,11 +331,11 @@ class App {
 
         canvas.addEventListener("wheel", (ev: WheelEvent) => {
             cameraZoom += ev.deltaY * -1;
-            zoomFactor = this.zoomFactorFunction(cameraZoom);
+            zoomFactor = this.zoomFactor(cameraZoom);
         })
     }
 
-    zoomFactorFunction(zoom: number) {
+    zoomFactor(zoom: number) {
         return Math.max(Math.exp(zoom/5000), 0.2);
     }
 }
