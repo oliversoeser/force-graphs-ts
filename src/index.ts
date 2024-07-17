@@ -54,6 +54,7 @@ let cameraZoom: number;
 let zoomFactor: number;
 
 let selectedVertex: Vertex;
+let mousePos: Vector;
 
 
 /*** MATHEMATICS ***/
@@ -259,6 +260,11 @@ class SpringEmbedder {
             edge.source.applyForce(force);
             edge.target.applyForce(force.mul(-1));
         });
+
+        // Mouse force
+        if (selectedVertex != undefined) {
+            selectedVertex.applyForce(this.mousePullForce(selectedVertex));
+        }
     }
 
     // Render Graph
@@ -304,19 +310,25 @@ class SpringEmbedder {
         let force = r_vec.mul(1 / d).mul((degree[v1.id] * degree[v2.id])**(1/5) * ELECTRICAL_FACTOR / Math.sqrt(d));
         return force;
     }
+
+    // Mouse pull
+    mousePullForce(vertex: Vertex): Vector {
+        let r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
+        let force = r_vec.mul(1 / 7);
+        return force;
+    }
 }
 
 class App {
     private readonly springEmbedder: SpringEmbedder;
 
     private currentMouseAction: MouseAction;
-    private mousePos: Vector;
 
     constructor(data: GraphData) {
         this.springEmbedder = new SpringEmbedder(data)
         
         this.currentMouseAction = MouseAction.None;
-        this.mousePos = ZERO_VECTOR;
+        mousePos = ZERO_VECTOR;
 
         selectedVertex = undefined;
 
@@ -326,6 +338,7 @@ class App {
             this.springEmbedder.graph.vertices.forEach(vertex => {
                 if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id])) {
                     selectedVertex = vertex;
+                    this.currentMouseAction = MouseAction.MoveVertex;
                 }
             });
         });
@@ -335,15 +348,16 @@ class App {
 
             // Move Camera
             if (this.currentMouseAction == MouseAction.MoveCamera) {
-                let delta = this.mousePos.to(newMousePos);
+                let delta = mousePos.to(newMousePos);
                 cameraPos = cameraPos.add(delta);
             }
 
-            this.mousePos = newMousePos;
+            mousePos = newMousePos;
         });
 
         canvas.addEventListener("mouseup", (ev: MouseEvent) => {
             this.currentMouseAction = MouseAction.None;
+            selectedVertex = undefined;
         });
 
         canvas.addEventListener("wheel", (ev: WheelEvent) => {

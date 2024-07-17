@@ -21,6 +21,7 @@ var cameraPos;
 var cameraZoom;
 var zoomFactor;
 var selectedVertex;
+var mousePos;
 var Vector = (function () {
     function Vector(x, y) {
         this.x = x;
@@ -158,6 +159,9 @@ var SpringEmbedder = (function () {
             edge.source.applyForce(force);
             edge.target.applyForce(force.mul(-1));
         });
+        if (selectedVertex != undefined) {
+            selectedVertex.applyForce(this.mousePullForce(selectedVertex));
+        }
     };
     SpringEmbedder.prototype.stepDraw = function () {
         var _this = this;
@@ -191,6 +195,11 @@ var SpringEmbedder = (function () {
         var force = r_vec.mul(1 / d).mul(Math.pow((degree[v1.id] * degree[v2.id]), (1 / 5)) * ELECTRICAL_FACTOR / Math.sqrt(d));
         return force;
     };
+    SpringEmbedder.prototype.mousePullForce = function (vertex) {
+        var r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
+        var force = r_vec.mul(1 / 7);
+        return force;
+    };
     return SpringEmbedder;
 }());
 var App = (function () {
@@ -198,26 +207,28 @@ var App = (function () {
         var _this = this;
         this.springEmbedder = new SpringEmbedder(data);
         this.currentMouseAction = MouseAction.None;
-        this.mousePos = ZERO_VECTOR;
+        mousePos = ZERO_VECTOR;
         selectedVertex = undefined;
         canvas.addEventListener("mousedown", function (ev) {
             _this.currentMouseAction = MouseAction.MoveCamera;
             _this.springEmbedder.graph.vertices.forEach(function (vertex) {
                 if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id])) {
                     selectedVertex = vertex;
+                    _this.currentMouseAction = MouseAction.MoveVertex;
                 }
             });
         });
         canvas.addEventListener("mousemove", function (ev) {
             var newMousePos = new Vector(ev.x, ev.y);
             if (_this.currentMouseAction == MouseAction.MoveCamera) {
-                var delta = _this.mousePos.to(newMousePos);
+                var delta = mousePos.to(newMousePos);
                 cameraPos = cameraPos.add(delta);
             }
-            _this.mousePos = newMousePos;
+            mousePos = newMousePos;
         });
         canvas.addEventListener("mouseup", function (ev) {
             _this.currentMouseAction = MouseAction.None;
+            selectedVertex = undefined;
         });
         canvas.addEventListener("wheel", function (ev) {
             cameraZoom += ev.deltaY * -1;
