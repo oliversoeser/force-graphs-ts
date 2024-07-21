@@ -1,3 +1,3 @@
-# springs-ts
+# force-graphs-ts
 
-https://www.oliversoeser.com/springs-ts/web/
+https://www.oliversoeser.com/force-graphs-ts/web/
