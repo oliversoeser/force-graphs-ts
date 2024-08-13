@@ -385,6 +385,10 @@ class SpringEmbedder {
             this.renderer.drawEdge(edge);
         });
 
+        if (selectedVertex != undefined) {
+            this.renderer.drawRelatedVertex(selectedVertex, "orange");
+        }
+
         // Draw Vertices
         context.lineWidth = 1;
         context.strokeStyle = VERTEX_STROKE;

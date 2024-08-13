@@ -266,6 +266,9 @@ var SpringEmbedder = (function () {
         this.graph.edges.forEach(function (edge) {
             _this.renderer.drawEdge(edge);
         });
+        if (selectedVertex != undefined) {
+            this.renderer.drawRelatedVertex(selectedVertex, "orange");
+        }
         context.lineWidth = 1;
         context.strokeStyle = VERTEX_STROKE;
         context.fillStyle = VERTEX_FILL;
