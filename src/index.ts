@@ -40,9 +40,11 @@ const GRAVITY_RADIUS = 700;
 
 // Render Settings
 const VERTEX_RADIUS = 10;
-const VERTEX_STYLE = "black";
-const EDGE_STYLE = "black";
-
+const VERTEX_STROKE = "#023047";
+const VERTEX_FILL = "#8ECAE6";
+const EDGE_STROKE = "grey";
+const SELECTION_FILL = "black";
+const BACKGROUND_COLOR = "white";
 
 /*** GLOBAL VARIABLES ***/
 
@@ -187,14 +189,17 @@ class Renderer {
 
         context.beginPath();
         context.arc(pos.x, pos.y, VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
+        context.fill();
         context.stroke();
+    }
 
-        if (vertex == selectedVertex) {
-            context.fillStyle = "red";
-            context.font = `${10*zoomFactor*Math.cbrt(degree[vertex.id])}px Arial`;
-            context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width/2, pos.y);
-            context.fillStyle = VERTEX_STYLE;
-        }
+    drawSelectionInfo() {
+        let vertex = selectedVertex;
+        let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
+
+        context.font = `${10*zoomFactor*Math.cbrt(degree[vertex.id])}px Arial`;
+        context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width/2, pos.y);
+        context.fillStyle = VERTEX_STROKE;
     }
 
     drawEdge(edge: Edge) {
@@ -208,6 +213,10 @@ class Renderer {
 
     clear() {
         context.clearRect(0, 0, canvas.width, canvas.height);
+
+        context.rect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = BACKGROUND_COLOR;
+        context.fill();
     }
 }
 
@@ -274,17 +283,22 @@ class SpringEmbedder {
         this.renderer.clear();
 
         // Draw Edges
-        context.strokeStyle = EDGE_STYLE;
+        context.strokeStyle = EDGE_STROKE;
         this.graph.edges.forEach(edge => {
             this.renderer.drawEdge(edge);
         });
 
         // Draw Vertices
-        context.strokeStyle = VERTEX_STYLE;
+        context.strokeStyle = VERTEX_STROKE;
+        context.fillStyle = VERTEX_FILL;
         this.graph.vertices.forEach(vertex => {
             vertex.step();
             this.renderer.drawVertex(vertex);
         });
+
+        // Draw Selected Vertex Info
+        context.fillStyle = SELECTION_FILL;
+        this.renderer.drawSelectionInfo();
     }
 
     // Keep Graph centred

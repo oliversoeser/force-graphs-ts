@@ -13,8 +13,11 @@ var GRAVITY_FACTOR = 15000;
 var IDEAL_SPRING_LENGTH = 50;
 var GRAVITY_RADIUS = 700;
 var VERTEX_RADIUS = 10;
-var VERTEX_STYLE = "black";
-var EDGE_STYLE = "black";
+var VERTEX_STROKE = "#023047";
+var VERTEX_FILL = "#8ECAE6";
+var EDGE_STROKE = "grey";
+var SELECTION_FILL = "black";
+var BACKGROUND_COLOR = "white";
 var canvas;
 var context;
 var cameraPos;
@@ -102,13 +105,15 @@ var Renderer = (function () {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         context.beginPath();
         context.arc(pos.x, pos.y, VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
+        context.fill();
         context.stroke();
-        if (vertex == selectedVertex) {
-            context.fillStyle = "red";
-            context.font = "".concat(10 * zoomFactor * Math.cbrt(degree[vertex.id]), "px Arial");
-            context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width / 2, pos.y);
-            context.fillStyle = VERTEX_STYLE;
-        }
+    };
+    Renderer.prototype.drawSelectionInfo = function () {
+        var vertex = selectedVertex;
+        var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
+        context.font = "".concat(10 * zoomFactor * Math.cbrt(degree[vertex.id]), "px Arial");
+        context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width / 2, pos.y);
+        context.fillStyle = VERTEX_STROKE;
     };
     Renderer.prototype.drawEdge = function (edge) {
         var start = edge.source.pos.add(cameraPos).mul(zoomFactor);
@@ -119,6 +124,9 @@ var Renderer = (function () {
     };
     Renderer.prototype.clear = function () {
         context.clearRect(0, 0, canvas.width, canvas.height);
+        context.rect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = BACKGROUND_COLOR;
+        context.fill();
     };
     return Renderer;
 }());
@@ -167,15 +175,18 @@ var SpringEmbedder = (function () {
         var _this = this;
         this.renderer.fitCanvasToWindow();
         this.renderer.clear();
-        context.strokeStyle = EDGE_STYLE;
+        context.strokeStyle = EDGE_STROKE;
         this.graph.edges.forEach(function (edge) {
             _this.renderer.drawEdge(edge);
         });
-        context.strokeStyle = VERTEX_STYLE;
+        context.strokeStyle = VERTEX_STROKE;
+        context.fillStyle = VERTEX_FILL;
         this.graph.vertices.forEach(function (vertex) {
             vertex.step();
             _this.renderer.drawVertex(vertex);
         });
+        context.fillStyle = SELECTION_FILL;
+        this.renderer.drawSelectionInfo();
     };
     SpringEmbedder.prototype.gravityOrigin = function (vertex) {
         var r_vec = vertex.pos.to(new Vector(canvas.width / 2, canvas.height / 2));
