@@ -108,6 +108,19 @@ var Renderer = (function () {
         context.fill();
         context.stroke();
     };
+    Renderer.prototype.drawRelatedVertex = function (vertex, color) {
+        var stroke = context.strokeStyle;
+        var fill = context.fillStyle;
+        var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
+        context.strokeStyle = color;
+        context.fillStyle = color;
+        context.beginPath();
+        context.arc(pos.x, pos.y, 3 + VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
+        context.fill();
+        context.stroke();
+        context.strokeStyle = stroke;
+        context.fillStyle = stroke;
+    };
     Renderer.prototype.drawSelectionInfo = function () {
         if (selectedVertex == undefined)
             return;
@@ -154,6 +167,7 @@ var Renderer = (function () {
             context.stroke();
             context.lineWidth = 1;
             context.strokeStyle = EDGE_STROKE;
+            this.drawRelatedVertex(edge.target, "green");
             return;
         }
         else if (edge.target.id == selectedVertex.id) {
@@ -189,6 +203,7 @@ var Renderer = (function () {
             context.stroke();
             context.lineWidth = 1;
             context.strokeStyle = EDGE_STROKE;
+            this.drawRelatedVertex(edge.source, "red");
             return;
         }
         context.beginPath();

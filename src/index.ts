@@ -193,6 +193,21 @@ class Renderer {
         context.stroke();
     }
 
+    drawRelatedVertex(vertex: Vertex, color: string) {
+        let stroke = context.strokeStyle;
+        let fill = context.fillStyle;
+        let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
+        context.strokeStyle = color;
+        context.fillStyle = color;
+        context.beginPath();
+        context.arc(pos.x, pos.y, 3+VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
+        context.fill();
+        context.stroke();
+
+        context.strokeStyle = stroke;
+        context.fillStyle = stroke;
+    }
+
     drawSelectionInfo() {
         if (selectedVertex == undefined) return;
 
@@ -246,6 +261,8 @@ class Renderer {
             context.stroke();
             context.lineWidth = 1;
             context.strokeStyle = EDGE_STROKE;
+
+            this.drawRelatedVertex(edge.target, "green");
             return
         } else if (edge.target.id == selectedVertex.id) {
             context.lineWidth = 3;
@@ -283,6 +300,8 @@ class Renderer {
             context.stroke();
             context.lineWidth = 1;
             context.strokeStyle = EDGE_STROKE;
+
+            this.drawRelatedVertex(edge.source, "red");
             return
         }
         context.beginPath()
