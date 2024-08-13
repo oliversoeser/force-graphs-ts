@@ -119,7 +119,7 @@ var Renderer = (function () {
         context.fill();
         context.stroke();
         context.strokeStyle = stroke;
-        context.fillStyle = stroke;
+        context.fillStyle = fill;
     };
     Renderer.prototype.drawSelectionInfo = function () {
         if (selectedVertex == undefined)

@@ -205,7 +205,7 @@ class Renderer {
         context.stroke();
 
         context.strokeStyle = stroke;
-        context.fillStyle = stroke;
+        context.fillStyle = fill;
     }
 
     drawSelectionInfo() {
