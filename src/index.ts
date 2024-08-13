@@ -57,6 +57,7 @@ let zoomFactor: number;
 
 let selectedVertex: Vertex;
 let mousePos: Vector;
+let mouseActive: boolean = false;
 
 
 /*** MATHEMATICS ***/
@@ -208,10 +209,7 @@ class Renderer {
         context.fillStyle = fill;
     }
 
-    drawSelectionInfo() {
-        if (selectedVertex == undefined) return;
-
-        let vertex = selectedVertex;
+    drawVertexInfo(vertex: Vertex) {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
         // Sigmoid curve to keep the text within a readable range
@@ -370,7 +368,7 @@ class SpringEmbedder {
         });
 
         // Mouse force
-        if (selectedVertex != undefined) {
+        if (selectedVertex != undefined && mouseActive && currentMouseAction == MouseAction.MoveVertex) {
             selectedVertex.applyForce(this.mousePullForce(selectedVertex));
         }
     }
@@ -396,9 +394,14 @@ class SpringEmbedder {
             this.renderer.drawVertex(vertex);
         });
 
-        // Draw Selected Vertex Info
+        // Draw Hovered Vertex Info
         context.fillStyle = SELECTION_FILL;
-        this.renderer.drawSelectionInfo();
+
+        this.graph.vertices.forEach(vertex => {
+            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id])) {
+                this.renderer.drawVertexInfo(vertex);
+            }
+        });
     }
 
     // Keep Graph centred
@@ -433,26 +436,27 @@ class SpringEmbedder {
     }
 }
 
+let currentMouseAction: MouseAction;
+
 class App {
     private readonly springEmbedder: SpringEmbedder;
-
-    private currentMouseAction: MouseAction;
 
     constructor(data: GraphData) {
         this.springEmbedder = new SpringEmbedder(data)
         
-        this.currentMouseAction = MouseAction.None;
+        currentMouseAction = MouseAction.None;
         mousePos = ZERO_VECTOR;
 
         selectedVertex = undefined;
 
         canvas.addEventListener("mousedown", (ev: MouseEvent) => {
-            this.currentMouseAction = MouseAction.MoveCamera;
+            currentMouseAction = MouseAction.MoveCamera;
+            mouseActive = true;
 
             this.springEmbedder.graph.vertices.forEach(vertex => {
                 if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id])) {
                     selectedVertex = vertex;
-                    this.currentMouseAction = MouseAction.MoveVertex;
+                    currentMouseAction = MouseAction.MoveVertex;
                 }
             });
         });
@@ -461,7 +465,7 @@ class App {
             let newMousePos = new Vector(ev.x, ev.y);
 
             // Move Camera
-            if (this.currentMouseAction == MouseAction.MoveCamera) {
+            if (currentMouseAction == MouseAction.MoveCamera) {
                 let delta = mousePos.to(newMousePos);
                 cameraPos = cameraPos.add(delta);
             }
@@ -470,8 +474,8 @@ class App {
         });
 
         canvas.addEventListener("mouseup", (ev: MouseEvent) => {
-            this.currentMouseAction = MouseAction.None;
-            selectedVertex = undefined;
+            currentMouseAction = MouseAction.None;
+            mouseActive = false;
         });
 
         canvas.addEventListener("wheel", (ev: WheelEvent) => {
