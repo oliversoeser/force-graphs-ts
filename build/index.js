@@ -120,6 +120,78 @@ var Renderer = (function () {
     Renderer.prototype.drawEdge = function (edge) {
         var start = edge.source.pos.add(cameraPos).mul(zoomFactor);
         var end = edge.target.pos.add(cameraPos).mul(zoomFactor);
+        if (selectedVertex == undefined) { }
+        else if (edge.source.id == selectedVertex.id) {
+            context.lineWidth = 3;
+            context.strokeStyle = "green";
+            context.beginPath();
+            context.moveTo(start.x, start.y);
+            context.lineTo(end.x, end.y);
+            context.stroke();
+            context.lineWidth = 1;
+            context.strokeStyle = EDGE_STROKE;
+            var line = end.to(start);
+            var len = line.size();
+            var u_dir = line.mul(1 / len);
+            var normal_dir = new Vector(-u_dir.y, u_dir.x);
+            var midpoint = end.add(u_dir.mul(len / 2));
+            var a = midpoint.add(normal_dir.mul(7));
+            var b = midpoint.sub(normal_dir.mul(7));
+            var c = midpoint.add(u_dir.mul(-7));
+            context.lineWidth = 4;
+            context.strokeStyle = "green";
+            context.beginPath();
+            context.moveTo(a.x, a.y);
+            context.lineTo(b.x, b.y);
+            context.stroke();
+            context.beginPath();
+            context.moveTo(c.x, c.y);
+            context.lineTo(b.x, b.y);
+            context.stroke();
+            context.beginPath();
+            context.moveTo(a.x, a.y);
+            context.lineTo(c.x, c.y);
+            context.stroke();
+            context.lineWidth = 1;
+            context.strokeStyle = EDGE_STROKE;
+            return;
+        }
+        else if (edge.target.id == selectedVertex.id) {
+            context.lineWidth = 3;
+            context.strokeStyle = "red";
+            context.beginPath();
+            context.moveTo(start.x, start.y);
+            context.lineTo(end.x, end.y);
+            context.stroke();
+            context.lineWidth = 1;
+            context.strokeStyle = EDGE_STROKE;
+            var line = start.to(end);
+            var len = line.size();
+            var u_dir = line.mul(1 / len);
+            var normal_dir = new Vector(-u_dir.y, u_dir.x);
+            var midpoint = start.add(u_dir.mul(len / 2));
+            var a = midpoint.add(normal_dir.mul(7));
+            var b = midpoint.sub(normal_dir.mul(7));
+            var c = midpoint.add(u_dir.mul(7));
+            context.lineWidth = 4;
+            context.strokeStyle = "red";
+            context.beginPath();
+            context.moveTo(a.x, a.y);
+            context.lineTo(b.x, b.y);
+            context.stroke();
+            context.beginPath();
+            context.moveTo(c.x, c.y);
+            context.lineTo(b.x, b.y);
+            context.stroke();
+            context.beginPath();
+            context.moveTo(a.x, a.y);
+            context.lineTo(c.x, c.y);
+            context.stroke();
+            context.lineWidth = 1;
+            context.strokeStyle = EDGE_STROKE;
+            return;
+        }
+        context.beginPath();
         context.moveTo(start.x, start.y);
         context.lineTo(end.x, end.y);
         context.stroke();
@@ -181,6 +253,7 @@ var SpringEmbedder = (function () {
         this.graph.edges.forEach(function (edge) {
             _this.renderer.drawEdge(edge);
         });
+        context.lineWidth = 1;
         context.strokeStyle = VERTEX_STROKE;
         context.fillStyle = VERTEX_FILL;
         this.graph.vertices.forEach(function (vertex) {
