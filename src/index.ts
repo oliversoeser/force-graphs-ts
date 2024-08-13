@@ -194,10 +194,13 @@ class Renderer {
     }
 
     drawSelectionInfo() {
+        if (selectedVertex == undefined) return;
+
         let vertex = selectedVertex;
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
-        context.font = `${10*zoomFactor*Math.cbrt(degree[vertex.id])}px Arial`;
+        // Sigmoid curve to keep the text within a readable range
+        context.font = `${14+8/(1+Math.exp(18-10*Math.cbrt(degree[vertex.id])))}px Arial`;
         context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width/2, pos.y);
         context.fillStyle = VERTEX_STROKE;
     }

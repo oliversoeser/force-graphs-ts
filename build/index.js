@@ -109,9 +109,11 @@ var Renderer = (function () {
         context.stroke();
     };
     Renderer.prototype.drawSelectionInfo = function () {
+        if (selectedVertex == undefined)
+            return;
         var vertex = selectedVertex;
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
-        context.font = "".concat(10 * zoomFactor * Math.cbrt(degree[vertex.id]), "px Arial");
+        context.font = "".concat(14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(degree[vertex.id]))), "px Arial");
         context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width / 2, pos.y);
         context.fillStyle = VERTEX_STROKE;
     };
