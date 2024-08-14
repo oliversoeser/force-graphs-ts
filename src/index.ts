@@ -86,9 +86,36 @@ class Vector {
 }
 
 /*** MATHEMATICAL CONSTANTS ***/
+
 const ZERO_VECTOR = new Vector(0, 0);
 const SECOND = 1000;
 
+
+/*** MATHEMATICAL FUNCTIONS ***/
+
+function sigmoid(x: number): number {
+    return 1 / (1 + Math.exp(-x));
+}
+
+
+/*** HELPER FUNCTIONS ***/
+
+function splitText(text: string, maxWidth: number): string[] {
+    let words = text.split(" ");
+
+    let lines = [];
+    let substring = words[0];
+    for (let i = 1; i < words.length; i++) {
+        if (context.measureText(substring + " " + words[i]).width >= maxWidth) {
+            lines.push(substring)
+            substring = words[i];
+        } else {
+            substring += " " + words[i]
+        }
+    }
+    lines.push(substring)
+    return lines;
+}
 
 /*** GRAPHS ***/
 
@@ -320,6 +347,27 @@ class Renderer {
         context.stroke();
     }
 
+    drawSidebar() {
+        context.fillStyle = "rgba(0, 0, 0, 0.2)";
+
+        let width = 250 * (1 + sigmoid(canvas.width/200 - 7));
+        context.fillRect(canvas.width - width, 0, width, canvas.height)
+
+        context.fillStyle = "black";
+        context.font = "30px Arial";
+
+        let title = "None Selected";
+
+        if (selectedVertex != undefined) title = selectedVertex.title;
+
+        let lines = splitText(title, width-20);
+
+        for (let i = 0; i < lines.length; i++)
+        {
+            context.fillText(lines[i], canvas.width-width + 10, 50+30*i)
+        }
+    }
+
     clear() {
         context.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -418,6 +466,9 @@ class SpringEmbedder {
                 this.renderer.drawVertexInfo(vertex);
             }
         });
+
+        // Draw GUI
+        this.renderer.drawSidebar();
     }
 
     // Keep Graph centred

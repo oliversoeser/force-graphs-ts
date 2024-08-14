@@ -40,6 +40,25 @@ var Vector = (function () {
 }());
 var ZERO_VECTOR = new Vector(0, 0);
 var SECOND = 1000;
+function sigmoid(x) {
+    return 1 / (1 + Math.exp(-x));
+}
+function splitText(text, maxWidth) {
+    var words = text.split(" ");
+    var lines = [];
+    var substring = words[0];
+    for (var i = 1; i < words.length; i++) {
+        if (context.measureText(substring + " " + words[i]).width >= maxWidth) {
+            lines.push(substring);
+            substring = words[i];
+        }
+        else {
+            substring += " " + words[i];
+        }
+    }
+    lines.push(substring);
+    return lines;
+}
 var Vertex = (function () {
     function Vertex(pos, id, name, title) {
         this.pos = pos;
@@ -215,6 +234,20 @@ var Renderer = (function () {
         context.lineTo(end.x, end.y);
         context.stroke();
     };
+    Renderer.prototype.drawSidebar = function () {
+        context.fillStyle = "rgba(0, 0, 0, 0.2)";
+        var width = 250 * (1 + sigmoid(canvas.width / 200 - 7));
+        context.fillRect(canvas.width - width, 0, width, canvas.height);
+        context.fillStyle = "black";
+        context.font = "30px Arial";
+        var title = "None Selected";
+        if (selectedVertex != undefined)
+            title = selectedVertex.title;
+        var lines = splitText(title, width - 20);
+        for (var i = 0; i < lines.length; i++) {
+            context.fillText(lines[i], canvas.width - width + 10, 50 + 30 * i);
+        }
+    };
     Renderer.prototype.clear = function () {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.rect(0, 0, canvas.width, canvas.height);
@@ -288,6 +321,7 @@ var SpringEmbedder = (function () {
                 _this.renderer.drawVertexInfo(vertex);
             }
         });
+        this.renderer.drawSidebar();
     };
     SpringEmbedder.prototype.gravityOrigin = function (vertex) {
         var r_vec = vertex.pos.to(new Vector(canvas.width / 2, canvas.height / 2));
