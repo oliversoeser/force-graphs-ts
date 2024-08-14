@@ -44,7 +44,7 @@ const VERTEX_STROKE = "#023047";
 const VERTEX_FILL = "#8ECAE6";
 const EDGE_STROKE = "grey";
 const SELECTION_FILL = "black";
-const BACKGROUND_COLOR = "white";
+const BACKGROUND_COLOR = "rgb(245, 245, 245)";
 
 /*** GLOBAL VARIABLES ***/
 
@@ -213,8 +213,20 @@ class Renderer {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
         // Sigmoid curve to keep the text within a readable range
-        context.font = `${14+8/(1+Math.exp(18-10*Math.cbrt(degree[vertex.id])))}px Arial`;
-        context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width/2, pos.y);
+        let size = 14+8/(1+Math.exp(18-10*Math.cbrt(degree[vertex.id])));
+
+        context.fillStyle = "black";
+        context.font = `${size}px Arial`;
+
+
+        let width = context.measureText(vertex.title).width
+
+        context.fillStyle = "rgba(255, 255, 255, 0.4)";
+
+        context.fillRect(pos.x - 1.01*width/2, pos.y - size, 1.01*width, size*1.5)
+
+        context.fillStyle = "black";
+        context.fillText(vertex.title, pos.x - width/2, pos.y);
         context.fillStyle = VERTEX_STROKE;
     }
 
@@ -241,9 +253,9 @@ class Renderer {
             let midpoint = end.add(u_dir.mul(len/2))
             let a = midpoint.add(normal_dir.mul(7));
             let b = midpoint.sub(normal_dir.mul(7));
-            let c = midpoint.add(u_dir.mul(-7));
+            let c = midpoint.add(u_dir.mul(-8));
 
-            context.lineWidth = 4;
+            context.lineWidth = 5;
             context.strokeStyle = "green";
             context.beginPath()
             context.moveTo(a.x, a.y);
@@ -280,9 +292,9 @@ class Renderer {
             let midpoint = start.add(u_dir.mul(len/2))
             let a = midpoint.add(normal_dir.mul(7));
             let b = midpoint.sub(normal_dir.mul(7));
-            let c = midpoint.add(u_dir.mul(7));
+            let c = midpoint.add(u_dir.mul(8));
 
-            context.lineWidth = 4;
+            context.lineWidth = 5;
             context.strokeStyle = "red";
             context.beginPath()
             context.moveTo(a.x, a.y);

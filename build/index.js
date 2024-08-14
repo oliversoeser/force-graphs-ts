@@ -17,7 +17,7 @@ var VERTEX_STROKE = "#023047";
 var VERTEX_FILL = "#8ECAE6";
 var EDGE_STROKE = "grey";
 var SELECTION_FILL = "black";
-var BACKGROUND_COLOR = "white";
+var BACKGROUND_COLOR = "rgb(245, 245, 245)";
 var canvas;
 var context;
 var cameraPos;
@@ -124,8 +124,14 @@ var Renderer = (function () {
     };
     Renderer.prototype.drawVertexInfo = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
-        context.font = "".concat(14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(degree[vertex.id]))), "px Arial");
-        context.fillText(vertex.title, pos.x - context.measureText(vertex.title).width / 2, pos.y);
+        var size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(degree[vertex.id])));
+        context.fillStyle = "black";
+        context.font = "".concat(size, "px Arial");
+        var width = context.measureText(vertex.title).width;
+        context.fillStyle = "rgba(255, 255, 255, 0.4)";
+        context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5);
+        context.fillStyle = "black";
+        context.fillText(vertex.title, pos.x - width / 2, pos.y);
         context.fillStyle = VERTEX_STROKE;
     };
     Renderer.prototype.drawEdge = function (edge) {
@@ -148,8 +154,8 @@ var Renderer = (function () {
             var midpoint = end.add(u_dir.mul(len / 2));
             var a = midpoint.add(normal_dir.mul(7));
             var b = midpoint.sub(normal_dir.mul(7));
-            var c = midpoint.add(u_dir.mul(-7));
-            context.lineWidth = 4;
+            var c = midpoint.add(u_dir.mul(-8));
+            context.lineWidth = 5;
             context.strokeStyle = "green";
             context.beginPath();
             context.moveTo(a.x, a.y);
@@ -184,8 +190,8 @@ var Renderer = (function () {
             var midpoint = start.add(u_dir.mul(len / 2));
             var a = midpoint.add(normal_dir.mul(7));
             var b = midpoint.sub(normal_dir.mul(7));
-            var c = midpoint.add(u_dir.mul(7));
-            context.lineWidth = 4;
+            var c = midpoint.add(u_dir.mul(8));
+            context.lineWidth = 5;
             context.strokeStyle = "red";
             context.beginPath();
             context.moveTo(a.x, a.y);
