@@ -6,3 +6,27 @@ html, body {
 body {
   overflow: hidden;
 }
+
+.toosmall {
+  display: none;
+}
+
+@media (max-width: 500px) {
+  .toosmall {
+    display: block;
+  }
+
+  canvas {
+    display: none;
+  }
+}
+
+@media (max-height: 500px) {
+  .toosmall {
+    display: block;
+  }
+
+  canvas {
+    display: none;
+  }
+}
