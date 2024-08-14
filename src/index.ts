@@ -347,8 +347,8 @@ class Renderer {
         context.stroke();
     }
 
-    drawSidebar() {
-        context.fillStyle = "rgba(0, 0, 0, 0.2)";
+    drawSidebar(edges: Edge[]) {
+        context.fillStyle = "rgba(255, 255, 255, 0.7)";
 
         let width = 250 * (1 + sigmoid(canvas.width/200 - 7));
         context.fillRect(canvas.width - width, 0, width, canvas.height)
@@ -356,7 +356,7 @@ class Renderer {
         context.fillStyle = "black";
         context.font = "30px Arial";
 
-        let title = "None Selected";
+        let title = "Click to Select";
 
         if (selectedVertex != undefined) title = selectedVertex.title;
 
@@ -366,6 +366,34 @@ class Renderer {
         {
             context.fillText(lines[i], canvas.width-width + 10, 50+30*i)
         }
+
+        context.font = "26px Arial";
+
+        // Neighbours
+        let pre: string[] = [];
+        let suc: string[] = [];
+        for (var i = 0; i < edges.length; i++) {
+            let edge = edges[i];
+            if (edge.source.id == selectedVertex.id) {
+                suc = suc.concat(splitText(edge.target.title, width-20));
+            } else if (edge.target.id == selectedVertex.id) {
+                pre = pre.concat(splitText(edge.source.title, width-20))
+            }
+        }
+
+        context.fillText("Predecessors:", canvas.width-width + 10, 0.8 * canvas.height/5)
+        context.fillText("Successors:", canvas.width-width + 10, 0.8 * canvas.height/5 + 30 * (pre.length+3))
+
+        context.font = "18px Arial";
+
+        for (let i = 0; i < pre.length; i++) {
+            context.fillText(pre[i], canvas.width-width + 10, 0.8 * canvas.height/5+30*(i+1))
+        }
+
+        for (let i = 0; i < suc.length; i++) {
+            context.fillText(suc[i], canvas.width-width + 10, 0.8 * canvas.height/5+30*(i+1 + pre.length + 3))
+        }
+
     }
 
     clear() {
@@ -468,7 +496,7 @@ class SpringEmbedder {
         });
 
         // Draw GUI
-        this.renderer.drawSidebar();
+        this.renderer.drawSidebar(this.graph.edges);
     }
 
     // Keep Graph centred

@@ -234,18 +234,39 @@ var Renderer = (function () {
         context.lineTo(end.x, end.y);
         context.stroke();
     };
-    Renderer.prototype.drawSidebar = function () {
-        context.fillStyle = "rgba(0, 0, 0, 0.2)";
+    Renderer.prototype.drawSidebar = function (edges) {
+        context.fillStyle = "rgba(255, 255, 255, 0.7)";
         var width = 250 * (1 + sigmoid(canvas.width / 200 - 7));
         context.fillRect(canvas.width - width, 0, width, canvas.height);
         context.fillStyle = "black";
         context.font = "30px Arial";
-        var title = "None Selected";
+        var title = "Click to Select";
         if (selectedVertex != undefined)
             title = selectedVertex.title;
         var lines = splitText(title, width - 20);
-        for (var i = 0; i < lines.length; i++) {
-            context.fillText(lines[i], canvas.width - width + 10, 50 + 30 * i);
+        for (var i_1 = 0; i_1 < lines.length; i_1++) {
+            context.fillText(lines[i_1], canvas.width - width + 10, 50 + 30 * i_1);
+        }
+        context.font = "26px Arial";
+        var pre = [];
+        var suc = [];
+        for (var i = 0; i < edges.length; i++) {
+            var edge = edges[i];
+            if (edge.source.id == selectedVertex.id) {
+                suc = suc.concat(splitText(edge.target.title, width - 20));
+            }
+            else if (edge.target.id == selectedVertex.id) {
+                pre = pre.concat(splitText(edge.source.title, width - 20));
+            }
+        }
+        context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5);
+        context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3));
+        context.font = "18px Arial";
+        for (var i_2 = 0; i_2 < pre.length; i_2++) {
+            context.fillText(pre[i_2], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i_2 + 1));
+        }
+        for (var i_3 = 0; i_3 < suc.length; i_3++) {
+            context.fillText(suc[i_3], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i_3 + 1 + pre.length + 3));
         }
     };
     Renderer.prototype.clear = function () {
@@ -321,7 +342,7 @@ var SpringEmbedder = (function () {
                 _this.renderer.drawVertexInfo(vertex);
             }
         });
-        this.renderer.drawSidebar();
+        this.renderer.drawSidebar(this.graph.edges);
     };
     SpringEmbedder.prototype.gravityOrigin = function (vertex) {
         var r_vec = vertex.pos.to(new Vector(canvas.width / 2, canvas.height / 2));
