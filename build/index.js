@@ -4,20 +4,44 @@ var MouseAction;
     MouseAction[MouseAction["MoveCamera"] = 1] = "MoveCamera";
     MouseAction[MouseAction["MoveVertex"] = 2] = "MoveVertex";
 })(MouseAction || (MouseAction = {}));
-var DT = 1 / 30;
-var EXECUTION_FACTOR = 1;
-var SPRING_FACTOR = 3;
-var ELECTRICAL_FACTOR = 3;
-var VELOCITY_FACTOR = 100;
-var GRAVITY_FACTOR = 15000;
-var IDEAL_SPRING_LENGTH = 50;
-var GRAVITY_RADIUS = 700;
-var VERTEX_RADIUS = 10;
+var DT = 1 / 20;
+var SPRING_FACTOR = 0.1;
+var ELECTRICAL_FACTOR = 2000;
+var VELOCITY_FACTOR = 10;
+var GRAVITY_FACTOR = 0;
+var IDEAL_SPRING_LENGTH = 25;
+var GRAVITY_RADIUS = 5000;
 var VERTEX_STROKE = "#023047";
 var VERTEX_FILL = "#8ECAE6";
 var EDGE_STROKE = "grey";
 var SELECTION_FILL = "black";
 var BACKGROUND_COLOR = "rgb(245, 245, 245)";
+var biology = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"];
+var chemistry = ["chem", "chph", "scbi"];
+var engineering = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"];
+var geosciences = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"];
+var informatics = ["infr"];
+var mathematics = ["math"];
+var physics = ["pgph", "phys"];
+function getColor(name) {
+    name = name.substring(0, 4);
+    if (biology.includes(name))
+        return "#24F07C";
+    else if (chemistry.includes(name))
+        return "#4B9B6D";
+    else if (engineering.includes(name))
+        return "#F0CF24";
+    else if (geosciences.includes(name))
+        return "#706A49";
+    else if (informatics.includes(name))
+        return "#949F99";
+    else if (mathematics.includes(name))
+        return "#F03424";
+    else if (physics.includes(name))
+        return "#2F24F0";
+    else
+        VERTEX_FILL;
+}
 var canvas;
 var context;
 var cameraPos;
@@ -26,6 +50,9 @@ var zoomFactor;
 var selectedVertex;
 var mousePos;
 var mouseActive = false;
+function degreeToRadius(degree) {
+    return 10 * zoomFactor * (0.7 * sigmoid(degree - 5) + 0.5);
+}
 var Vector = (function () {
     function Vector(x, y) {
         this.x = x;
@@ -60,12 +87,13 @@ function splitText(text, maxWidth) {
     return lines;
 }
 var Vertex = (function () {
-    function Vertex(pos, id, name, title) {
+    function Vertex(pos, id, name, title, color) {
         this.pos = pos;
         this.force = ZERO_VECTOR;
         this.id = id;
         this.name = name;
         this.title = title;
+        this.color = color;
     }
     Vertex.prototype.applyForce = function (force) { this.force = this.force.add(force); };
     Vertex.prototype.step = function () {
@@ -94,7 +122,7 @@ var Graph = (function () {
         for (var id = 0; id < data.vertices.length; id++) {
             var vdata = data.vertices[id];
             this.nameToId[vdata.name] = id;
-            this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title));
+            this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title, getColor(vdata.name)));
             degree.push(0);
             adjacency.push([]);
             for (var j = 0; j < data.vertices.length; j++) {
@@ -123,10 +151,13 @@ var Renderer = (function () {
     };
     Renderer.prototype.drawVertex = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
+        var fill = context.fillStyle;
+        context.fillStyle = vertex.color;
         context.beginPath();
-        context.arc(pos.x, pos.y, VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
+        context.fillStyle = fill;
     };
     Renderer.prototype.drawRelatedVertex = function (vertex, color) {
         var stroke = context.strokeStyle;
@@ -135,7 +166,7 @@ var Renderer = (function () {
         context.strokeStyle = color;
         context.fillStyle = color;
         context.beginPath();
-        context.arc(pos.x, pos.y, 3 + VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, 3 + degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
         context.strokeStyle = stroke;
@@ -247,7 +278,9 @@ var Renderer = (function () {
         for (var i_1 = 0; i_1 < lines.length; i_1++) {
             context.fillText(lines[i_1], canvas.width - width + 10, 50 + 30 * i_1);
         }
-        context.font = "26px Arial";
+        if (selectedVertex == undefined)
+            return;
+        context.font = "18px Arial";
         var pre = [];
         var suc = [];
         for (var i = 0; i < edges.length; i++) {
@@ -259,6 +292,7 @@ var Renderer = (function () {
                 pre = pre.concat(splitText(edge.source.title, width - 20));
             }
         }
+        context.font = "26px Arial";
         context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5);
         context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3));
         context.font = "18px Arial";
@@ -288,7 +322,10 @@ var SpringEmbedder = (function () {
         this.graph.edges.forEach(function (edge) {
             _this.renderer.drawEdge(edge);
         });
-        setInterval(this.step.bind(this), EXECUTION_FACTOR * DT * SECOND);
+        for (var i = 0; i < 0; i++) {
+            this.stepEades();
+        }
+        setInterval(this.step.bind(this), DT * SECOND);
     }
     SpringEmbedder.prototype.step = function () {
         this.stepEades();
@@ -317,6 +354,9 @@ var SpringEmbedder = (function () {
         if (selectedVertex != undefined && mouseActive && currentMouseAction == MouseAction.MoveVertex) {
             selectedVertex.applyForce(this.mousePullForce(selectedVertex));
         }
+        this.graph.vertices.forEach(function (vertex) {
+            vertex.step();
+        });
     };
     SpringEmbedder.prototype.stepDraw = function () {
         var _this = this;
@@ -333,12 +373,11 @@ var SpringEmbedder = (function () {
         context.strokeStyle = VERTEX_STROKE;
         context.fillStyle = VERTEX_FILL;
         this.graph.vertices.forEach(function (vertex) {
-            vertex.step();
             _this.renderer.drawVertex(vertex);
         });
         context.fillStyle = SELECTION_FILL;
         this.graph.vertices.forEach(function (vertex) {
-            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id])) {
+            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < degreeToRadius(degree[vertex.id])) {
                 _this.renderer.drawVertexInfo(vertex);
             }
         });
@@ -352,14 +391,14 @@ var SpringEmbedder = (function () {
     };
     SpringEmbedder.prototype.springForceEades = function (edge) {
         var r_vec = edge.source.pos.to(edge.target.pos);
-        var d = Math.max(r_vec.size(), 1);
-        var force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / (IDEAL_SPRING_LENGTH + VERTEX_RADIUS * Math.sqrt(degree[edge.source.id] * degree[edge.target.id]))));
+        var d = r_vec.size();
+        var force = r_vec.mul(1 / d).mul(SPRING_FACTOR * (d - IDEAL_SPRING_LENGTH));
         return force;
     };
     SpringEmbedder.prototype.electricalForceEades = function (v1, v2) {
         var r_vec = v2.pos.to(v1.pos);
-        var d = Math.max(r_vec.size(), 1);
-        var force = r_vec.mul(1 / d).mul(Math.pow((degree[v1.id] * degree[v2.id]), (1 / 5)) * ELECTRICAL_FACTOR / Math.sqrt(d));
+        var d = Math.max(r_vec.size(), 15);
+        var force = r_vec.mul(1 / d).mul(ELECTRICAL_FACTOR / (d * d));
         return force;
     };
     SpringEmbedder.prototype.mousePullForce = function (vertex) {
@@ -381,7 +420,7 @@ var App = (function () {
             currentMouseAction = MouseAction.MoveCamera;
             mouseActive = true;
             _this.springEmbedder.graph.vertices.forEach(function (vertex) {
-                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < VERTEX_RADIUS * zoomFactor * Math.sqrt(degree[vertex.id])) {
+                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < degreeToRadius(degree[vertex.id])) {
                     selectedVertex = vertex;
                     currentMouseAction = MouseAction.MoveVertex;
                 }

@@ -8,8 +8,9 @@
         "outDir": "build/"
     },
     "include": [
-        "src/*"
-, "build/index.js"    ],
+        "src/*",
+        "build/index.js"
+    ],
     "exclude": [
         "build/*"
     ],

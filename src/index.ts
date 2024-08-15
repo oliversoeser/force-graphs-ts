@@ -1,4 +1,4 @@
-/*** INTERFACES, TYPES, and ENUMS ***/
+/* INTERFACES, TYPES, and ENUMS */
 
 // Dictionary Interface
 interface Dictionary<T> {
@@ -17,36 +17,69 @@ enum MouseAction {
     MoveVertex
 }
 
-
-/*** CONSTANTS ***/
+/* CONSTANTS */
 
 // Delta Time
-const DT = 1 / 30;
-
-// Execution speed
-const EXECUTION_FACTOR = 1;
+const DT = 1 / 20;
 
 // Force Coefficients
-const SPRING_FACTOR = 3;
-const ELECTRICAL_FACTOR = 3;
-const VELOCITY_FACTOR = 100;
-const GRAVITY_FACTOR = 15000;
+const SPRING_FACTOR = 0.1;
+const ELECTRICAL_FACTOR = 2000;
+const VELOCITY_FACTOR = 10;
+const GRAVITY_FACTOR = 0;
 
 // Target Distance between Vertices
-const IDEAL_SPRING_LENGTH = 50;
+const IDEAL_SPRING_LENGTH = 25;
 
-// Radius of Uniform Gravity
-const GRAVITY_RADIUS = 700;
+const GRAVITY_RADIUS = 5000;
 
 // Render Settings
-const VERTEX_RADIUS = 10;
 const VERTEX_STROKE = "#023047";
 const VERTEX_FILL = "#8ECAE6";
 const EDGE_STROKE = "grey";
 const SELECTION_FILL = "black";
 const BACKGROUND_COLOR = "rgb(245, 245, 245)";
 
-/*** GLOBAL VARIABLES ***/
+// School colours and prefixes
+/*
+Biology - #24F07C - [bich, bilg, bite, cebi, debi, eclg, evbi, gene, idbi, immu, mlbi, moge, pgbi, plsc, zlgy]
+Chemistry - #4B9B6D - [chem, chph, scbi]
+Engineering - #F0CF24 - [chee, cive, elee, maee, mece, pgee, scee]
+Geosciences - #706A49 - [easc, ecsc, envi, gegr, gesc, mete, pgge, prge]
+Informatics - #949F99 - [infr]
+Mathematics - #F03424 - [math]
+Physics - #2F24F0 - [pgph, phys]
+*/
+
+let biology = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"]
+
+let chemistry = ["chem", "chph", "scbi"]
+
+let engineering = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"]
+
+let geosciences = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"]
+
+let informatics = ["infr"]
+
+let mathematics = ["math"]
+
+let physics = ["pgph", "phys"]
+
+function getColor(name: string): string {
+    name = name.substring(0, 4)
+
+    if (biology.includes(name)) return "#24F07C";
+    else if (chemistry.includes(name)) return "#4B9B6D";
+    else if (engineering.includes(name)) return "#F0CF24";
+    else if (geosciences.includes(name)) return "#706A49";
+    else if (informatics.includes(name)) return "#949F99";
+    else if (mathematics.includes(name)) return "#F03424";
+    else if (physics.includes(name)) return "#2F24F0";
+    else VERTEX_FILL
+}
+
+
+/* GLOBAL VARIABLES */
 
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
@@ -59,8 +92,11 @@ let selectedVertex: Vertex;
 let mousePos: Vector;
 let mouseActive: boolean = false;
 
+function degreeToRadius(degree: number) {
+    return 10 * zoomFactor * (0.7*sigmoid(degree-5) + 0.5)
+}
 
-/*** MATHEMATICS ***/
+/* MATHEMATICS */
 
 class Vector {
     public readonly x: number;
@@ -85,20 +121,18 @@ class Vector {
     mul(factor: number): Vector { return new Vector(this.x * factor, this.y * factor); }
 }
 
-/*** MATHEMATICAL CONSTANTS ***/
+
+/* MATHEMATICAL CONSTANTS */
 
 const ZERO_VECTOR = new Vector(0, 0);
 const SECOND = 1000;
 
 
-/*** MATHEMATICAL FUNCTIONS ***/
+/* HELPER FUNCTIONS */
 
 function sigmoid(x: number): number {
     return 1 / (1 + Math.exp(-x));
 }
-
-
-/*** HELPER FUNCTIONS ***/
 
 function splitText(text: string, maxWidth: number): string[] {
     let words = text.split(" ");
@@ -117,7 +151,8 @@ function splitText(text: string, maxWidth: number): string[] {
     return lines;
 }
 
-/*** GRAPHS ***/
+
+/* GRAPHS */
 
 class Vertex {
     public pos: Vector; // Position
@@ -125,13 +160,15 @@ class Vertex {
     public readonly id: number;
     public readonly name: string;
     public readonly title: string;
+    public readonly color: string;
 
-    constructor(pos: Vector, id: number, name: string, title: string) {
+    constructor(pos: Vector, id: number, name: string, title: string, color: string) {
         this.pos = pos;
         this.force = ZERO_VECTOR;
         this.id = id;
         this.name = name;
         this.title = title;
+        this.color = color;
     }
 
     // Sum forces
@@ -175,7 +212,7 @@ class Graph {
         for (let id = 0; id < data.vertices.length; id++) {
             let vdata = data.vertices[id];
             this.nameToId[vdata.name] = id;
-            this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title));
+            this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title, getColor(vdata.name)));
             degree.push(0);
             adjacency.push([]);
 
@@ -200,7 +237,7 @@ class Graph {
 }
 
 
-/*** VISUALISATION ***/
+/* VISUALISATION */
 
 class Renderer {
     constructor() {
@@ -215,10 +252,16 @@ class Renderer {
     drawVertex(vertex: Vertex) {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
+        let fill = context.fillStyle;
+
+        context.fillStyle = vertex.color;
+
         context.beginPath();
-        context.arc(pos.x, pos.y, VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
+
+        context.fillStyle = fill;
     }
 
     drawRelatedVertex(vertex: Vertex, color: string) {
@@ -228,7 +271,7 @@ class Renderer {
         context.strokeStyle = color;
         context.fillStyle = color;
         context.beginPath();
-        context.arc(pos.x, pos.y, 3+VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, 3 + degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
 
@@ -240,7 +283,7 @@ class Renderer {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
         // Sigmoid curve to keep the text within a readable range
-        let size = 14+8/(1+Math.exp(18-10*Math.cbrt(degree[vertex.id])));
+        let size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(degree[vertex.id])));
 
         context.fillStyle = "black";
         context.font = `${size}px Arial`;
@@ -250,10 +293,10 @@ class Renderer {
 
         context.fillStyle = "rgba(255, 255, 255, 0.4)";
 
-        context.fillRect(pos.x - 1.01*width/2, pos.y - size, 1.01*width, size*1.5)
+        context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5)
 
         context.fillStyle = "black";
-        context.fillText(vertex.title, pos.x - width/2, pos.y);
+        context.fillText(vertex.title, pos.x - width / 2, pos.y);
         context.fillStyle = VERTEX_STROKE;
     }
 
@@ -261,7 +304,7 @@ class Renderer {
         let start = edge.source.pos.add(cameraPos).mul(zoomFactor);
         let end = edge.target.pos.add(cameraPos).mul(zoomFactor);
 
-        if (selectedVertex == undefined) {}
+        if (selectedVertex == undefined) { }
         else if (edge.source.id == selectedVertex.id) {
             context.lineWidth = 3;
             context.strokeStyle = "green";
@@ -274,10 +317,10 @@ class Renderer {
 
             let line = end.to(start);
             let len = line.size();
-            let u_dir = line.mul(1/len);
+            let u_dir = line.mul(1 / len);
             let normal_dir = new Vector(-u_dir.y, u_dir.x);
-            
-            let midpoint = end.add(u_dir.mul(len/2))
+
+            let midpoint = end.add(u_dir.mul(len / 2))
             let a = midpoint.add(normal_dir.mul(7));
             let b = midpoint.sub(normal_dir.mul(7));
             let c = midpoint.add(u_dir.mul(-8));
@@ -313,10 +356,10 @@ class Renderer {
 
             let line = start.to(end);
             let len = line.size();
-            let u_dir = line.mul(1/len);
+            let u_dir = line.mul(1 / len);
             let normal_dir = new Vector(-u_dir.y, u_dir.x);
-            
-            let midpoint = start.add(u_dir.mul(len/2))
+
+            let midpoint = start.add(u_dir.mul(len / 2))
             let a = midpoint.add(normal_dir.mul(7));
             let b = midpoint.sub(normal_dir.mul(7));
             let c = midpoint.add(u_dir.mul(8));
@@ -350,7 +393,7 @@ class Renderer {
     drawSidebar(edges: Edge[]) {
         context.fillStyle = "rgba(255, 255, 255, 0.7)";
 
-        let width = 250 * (1 + sigmoid(canvas.width/200 - 7));
+        let width = 250 * (1 + sigmoid(canvas.width / 200 - 7));
         context.fillRect(canvas.width - width, 0, width, canvas.height)
 
         context.fillStyle = "black";
@@ -360,14 +403,15 @@ class Renderer {
 
         if (selectedVertex != undefined) title = selectedVertex.title;
 
-        let lines = splitText(title, width-20);
+        let lines = splitText(title, width - 20);
 
-        for (let i = 0; i < lines.length; i++)
-        {
-            context.fillText(lines[i], canvas.width-width + 10, 50+30*i)
+        for (let i = 0; i < lines.length; i++) {
+            context.fillText(lines[i], canvas.width - width + 10, 50 + 30 * i)
         }
 
-        context.font = "26px Arial";
+        if (selectedVertex == undefined) return;
+
+        context.font = "18px Arial";
 
         // Neighbours
         let pre: string[] = [];
@@ -375,23 +419,25 @@ class Renderer {
         for (var i = 0; i < edges.length; i++) {
             let edge = edges[i];
             if (edge.source.id == selectedVertex.id) {
-                suc = suc.concat(splitText(edge.target.title, width-20));
+                suc = suc.concat(splitText(edge.target.title, width - 20));
             } else if (edge.target.id == selectedVertex.id) {
-                pre = pre.concat(splitText(edge.source.title, width-20))
+                pre = pre.concat(splitText(edge.source.title, width - 20))
             }
         }
 
-        context.fillText("Predecessors:", canvas.width-width + 10, 0.8 * canvas.height/5)
-        context.fillText("Successors:", canvas.width-width + 10, 0.8 * canvas.height/5 + 30 * (pre.length+3))
+        context.font = "26px Arial";
+
+        context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5)
+        context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3))
 
         context.font = "18px Arial";
 
         for (let i = 0; i < pre.length; i++) {
-            context.fillText(pre[i], canvas.width-width + 10, 0.8 * canvas.height/5+30*(i+1))
+            context.fillText(pre[i], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i + 1))
         }
 
         for (let i = 0; i < suc.length; i++) {
-            context.fillText(suc[i], canvas.width-width + 10, 0.8 * canvas.height/5+30*(i+1 + pre.length + 3))
+            context.fillText(suc[i], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i + 1 + pre.length + 3))
         }
 
     }
@@ -406,7 +452,7 @@ class Renderer {
 }
 
 
-/*** FORCE DIRECTED GRAPH ALGORITHM ***/
+/* FORCE DIRECTED GRAPH DRAWING */
 
 class SpringEmbedder {
     private readonly renderer: Renderer;
@@ -424,7 +470,11 @@ class SpringEmbedder {
             this.renderer.drawEdge(edge);
         });
 
-        setInterval(this.step.bind(this), EXECUTION_FACTOR * DT * SECOND);
+        for (let i = 0; i < 0; i++) {
+            this.stepEades();
+        }
+
+        setInterval(this.step.bind(this), DT * SECOND);
     }
 
     step() {
@@ -459,6 +509,10 @@ class SpringEmbedder {
         if (selectedVertex != undefined && mouseActive && currentMouseAction == MouseAction.MoveVertex) {
             selectedVertex.applyForce(this.mousePullForce(selectedVertex));
         }
+
+        this.graph.vertices.forEach(vertex => {
+            vertex.step();
+        });
     }
 
     // Render Graph
@@ -482,7 +536,6 @@ class SpringEmbedder {
         context.strokeStyle = VERTEX_STROKE;
         context.fillStyle = VERTEX_FILL;
         this.graph.vertices.forEach(vertex => {
-            vertex.step();
             this.renderer.drawVertex(vertex);
         });
 
@@ -490,7 +543,7 @@ class SpringEmbedder {
         context.fillStyle = SELECTION_FILL;
 
         this.graph.vertices.forEach(vertex => {
-            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id])) {
+            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < degreeToRadius(degree[vertex.id])) {
                 this.renderer.drawVertexInfo(vertex);
             }
         });
@@ -510,16 +563,16 @@ class SpringEmbedder {
     // Keep adjacent Vertices together
     springForceEades(edge: Edge): Vector {
         let r_vec = edge.source.pos.to(edge.target.pos);
-        let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * Math.log(d / (IDEAL_SPRING_LENGTH + VERTEX_RADIUS * Math.sqrt(degree[edge.source.id] * degree[edge.target.id]))));
+        let d = r_vec.size();
+        let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * (d - IDEAL_SPRING_LENGTH));
         return force
     }
 
     // Keep unconnected Vertices apart
     electricalForceEades(v1: Vertex, v2: Vertex): Vector {
         let r_vec = v2.pos.to(v1.pos);
-        let d = Math.max(r_vec.size(), 1);
-        let force = r_vec.mul(1 / d).mul((degree[v1.id] * degree[v2.id])**(1/5) * ELECTRICAL_FACTOR / Math.sqrt(d));
+        let d = Math.max(r_vec.size(), 15);
+        let force = r_vec.mul(1 / d).mul(ELECTRICAL_FACTOR / (d*d));
         return force;
     }
 
@@ -538,7 +591,7 @@ class App {
 
     constructor(data: GraphData) {
         this.springEmbedder = new SpringEmbedder(data)
-        
+
         currentMouseAction = MouseAction.None;
         mousePos = ZERO_VECTOR;
 
@@ -549,7 +602,7 @@ class App {
             mouseActive = true;
 
             this.springEmbedder.graph.vertices.forEach(vertex => {
-                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < VERTEX_RADIUS*zoomFactor*Math.sqrt(degree[vertex.id])) {
+                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < degreeToRadius(degree[vertex.id])) {
                     selectedVertex = vertex;
                     currentMouseAction = MouseAction.MoveVertex;
                 }
@@ -580,12 +633,12 @@ class App {
     }
 
     zoomFactor(zoom: number) {
-        return Math.max(Math.exp(zoom/5000), 0.2);
+        return Math.max(Math.exp(zoom / 5000), 0.2);
     }
 }
 
 
-/*** APP START ***/
+/* APP START */
 
 window.onload = () => {
     fetch('../data/graph.json')
