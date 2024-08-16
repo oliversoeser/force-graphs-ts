@@ -37,11 +37,26 @@ class Vector {
 
 const DT = 1 / 20;
 
-const SPRING_FACTOR = 0.1;
-const ELECTRICAL_FACTOR = 2000;
-const VELOCITY_FACTOR = 10;
+const SPRING_FACTOR = 1;
+const ELECTRICAL_FACTOR = 20000;
 
 const IDEAL_SPRING_LENGTH = 25;
+
+const GRAPH_DATA_PATH = "../data/graph.json";
+
+const SUCCESSOR_EDGE = "green";
+const PREDECESSOR_EDGE = "red";
+const HIGHLIGHT_COLOR = "orange"
+
+const TEXT_COLOR = "black";
+const TEXT_FONT = "Arial";
+
+const SIZE_H1 = 30;
+const SIZE_H3 = 26;
+const SIZE_H4 = 18;
+
+const SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
+const INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
 
 const VERTEX_STROKE = "#023047";
 const VERTEX_FILL = "#8ECAE6";
@@ -49,31 +64,38 @@ const EDGE_STROKE = "grey";
 const SELECTION_FILL = "black";
 const BACKGROUND_COLOR = "rgb(245, 245, 245)";
 
-const biology = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"];
-const chemistry = ["chem", "chph", "scbi"];
-const engineering = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"];
-const geosciences = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"];
-const informatics = ["infr"];
-const mathematics = ["math"];
-const physics = ["pgph", "phys"];
+const BIOLOGY = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"];
+const CHEMISTRY = ["chem", "chph", "scbi"];
+const ENGINEERING = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"];
+const GEOSCIENCES = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"];
+const INFORMATICS = ["infr"];
+const MATHEMATICS = ["math"];
+const PHYSICS = ["pgph", "phys"];
+
+const BIOLOGY_COLOR = "#24F07C";
+const CHEMISTRY_COLOR = "#4B9B6D";
+const ENGINEERING_COLOR = "#F0CF24";
+const GEOSCIENCES_COLOR = "#706A49";
+const INFORMATICS_COLOR = "#949F99";
+const MATHEMATICS_COLOR = "#F03424";
+const PHYSICS_COLOR = "#2F24F0";
 
 const ZERO_VECTOR = new Vector(0, 0);
 const SECOND = 1000;
 
+let cameraPos: Vector = ZERO_VECTOR;
+let cameraZoom: number = 0;
+let zoomFactor: number = 1;
+
+let selectedVertex: Vertex;
+let mousePos: Vector = ZERO_VECTOR;
+let mouseActive: boolean = false;
+let currentMouseAction: MouseAction = MouseAction.None;
+
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 
-let cameraPos: Vector;
-let cameraZoom: number;
-let zoomFactor: number;
-
-let selectedVertex: Vertex;
-let mousePos: Vector;
-let mouseActive: boolean = false;
-
 let degree: number[];
-
-let currentMouseAction: MouseAction;
 
 function sigmoid(x: number): number {
     return 1 / (1 + Math.exp(-x));
@@ -102,14 +124,14 @@ function degreeToRadius(degree: number) {
 
 function getColor(name: string): string {
     name = name.substring(0, 4)
-    if (biology.includes(name)) return "#24F07C";
-    else if (chemistry.includes(name)) return "#4B9B6D";
-    else if (engineering.includes(name)) return "#F0CF24";
-    else if (geosciences.includes(name)) return "#706A49";
-    else if (informatics.includes(name)) return "#949F99";
-    else if (mathematics.includes(name)) return "#F03424";
-    else if (physics.includes(name)) return "#2F24F0";
-    else VERTEX_FILL
+    if (BIOLOGY.includes(name)) return BIOLOGY_COLOR;
+    else if (CHEMISTRY.includes(name)) return CHEMISTRY_COLOR;
+    else if (ENGINEERING.includes(name)) return ENGINEERING_COLOR;
+    else if (GEOSCIENCES.includes(name)) return GEOSCIENCES_COLOR;
+    else if (INFORMATICS.includes(name)) return INFORMATICS_COLOR;
+    else if (MATHEMATICS.includes(name)) return MATHEMATICS_COLOR;
+    else if (PHYSICS.includes(name)) return PHYSICS_COLOR;
+    else VERTEX_FILL;
 }
 
 class Vertex {
@@ -132,9 +154,9 @@ class Vertex {
     // Sum forces
     applyForce(force: Vector) { this.force = this.force.add(force); }
 
-    // Apply force directly to position
+    // Apply force directly as velocity
     step() {
-        this.pos = this.pos.add(this.force.mul(VELOCITY_FACTOR * DT));
+        this.pos = this.pos.add(this.force.mul(DT));
         this.force = ZERO_VECTOR; // Reset force
     }
 }
@@ -205,8 +227,6 @@ class Renderer {
     }
 
     drawRelatedVertex(vertex: Vertex, color: string) {
-        let stroke = context.strokeStyle;
-        let fill = context.fillStyle;
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         context.strokeStyle = color;
         context.fillStyle = color;
@@ -222,17 +242,17 @@ class Renderer {
         // Sigmoid curve to keep the text within a readable range
         let size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(degree[vertex.id])));
 
-        context.fillStyle = "black";
-        context.font = `${size}px Arial`;
+        context.fillStyle = TEXT_COLOR;
+        context.font = `${size}px ${TEXT_FONT}`;
 
 
         let width = context.measureText(vertex.title).width
 
-        context.fillStyle = "rgba(255, 255, 255, 0.4)";
+        context.fillStyle = INFO_BG_STYLE;
 
         context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5)
 
-        context.fillStyle = "black";
+        context.fillStyle = TEXT_COLOR;
         context.fillText(vertex.title, pos.x - width / 2, pos.y);
     }
 
@@ -243,7 +263,7 @@ class Renderer {
         if (selectedVertex == undefined) { }
         else if (edge.source.id == selectedVertex.id) {
             context.lineWidth = 3;
-            context.strokeStyle = "green";
+            context.strokeStyle = SUCCESSOR_EDGE;
             context.beginPath()
             context.moveTo(start.x, start.y);
             context.lineTo(end.x, end.y);
@@ -275,11 +295,11 @@ class Renderer {
             context.stroke();
             context.lineWidth = 1;
 
-            this.drawRelatedVertex(edge.target, "green");
+            this.drawRelatedVertex(edge.target, SUCCESSOR_EDGE);
             return
         } else if (edge.target.id == selectedVertex.id) {
             context.lineWidth = 3;
-            context.strokeStyle = "red";
+            context.strokeStyle = PREDECESSOR_EDGE;
             context.beginPath()
             context.moveTo(start.x, start.y);
             context.lineTo(end.x, end.y);
@@ -311,7 +331,7 @@ class Renderer {
             context.stroke();
             context.lineWidth = 1;
 
-            this.drawRelatedVertex(edge.source, "red");
+            this.drawRelatedVertex(edge.source, PREDECESSOR_EDGE);
             return
         }
 
@@ -324,13 +344,13 @@ class Renderer {
     }
 
     drawSidebar(edges: Edge[]) {
-        context.fillStyle = "rgba(255, 255, 255, 0.7)";
+        context.fillStyle = SIDEBAR_STYLE;
 
         let width = 250 * (1 + sigmoid(canvas.width / 200 - 7));
         context.fillRect(canvas.width - width, 0, width, canvas.height)
 
-        context.fillStyle = "black";
-        context.font = "30px Arial";
+        context.fillStyle = TEXT_COLOR;
+        context.font = `${SIZE_H1}px ${TEXT_FONT}`;
 
         let title = "Click to Select";
 
@@ -344,7 +364,7 @@ class Renderer {
 
         if (selectedVertex == undefined) return;
 
-        context.font = "18px Arial";
+        context.font = `${SIZE_H4}px ${TEXT_FONT}`;
 
         // Neighbours
         let pre: string[] = [];
@@ -358,12 +378,12 @@ class Renderer {
             }
         }
 
-        context.font = "26px Arial";
+        context.font = `${SIZE_H3}px ${TEXT_FONT}}`;
 
         context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5)
         context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3))
 
-        context.font = "18px Arial";
+        context.font = `${SIZE_H4}px ${TEXT_FONT}`;
 
         for (let i = 0; i < pre.length; i++) {
             context.fillText(pre[i], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i + 1))
@@ -446,7 +466,7 @@ class PhysicsEngine {
         });
 
         if (selectedVertex != undefined) {
-            this.renderer.drawRelatedVertex(selectedVertex, "orange");
+            this.renderer.drawRelatedVertex(selectedVertex, HIGHLIGHT_COLOR);
         }
 
         // Draw Vertices
@@ -486,7 +506,7 @@ class PhysicsEngine {
     // Mouse pull
     mousePullForce(vertex: Vertex): Vector {
         let r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
-        let force = r_vec.mul(1 / 7);
+        let force = r_vec;
         return force;
     }
 }
@@ -543,7 +563,7 @@ class App {
 }
 
 window.onload = () => {
-    fetch('../data/graph.json')
+    fetch(GRAPH_DATA_PATH)
         .then((response) => response.json() as unknown as GraphData)
         .then((json) => start(json));
 }
@@ -551,10 +571,6 @@ window.onload = () => {
 function start(data: GraphData) {
     canvas = document.getElementById("frame") as HTMLCanvasElement;
     context = canvas.getContext("2d");
-
-    cameraPos = ZERO_VECTOR;
-    cameraZoom = 0;
-    zoomFactor = 1;
 
     new App(data);
 }

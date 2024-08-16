@@ -17,34 +17,51 @@ var Vector = (function () {
     return Vector;
 }());
 var DT = 1 / 20;
-var SPRING_FACTOR = 0.1;
-var ELECTRICAL_FACTOR = 2000;
-var VELOCITY_FACTOR = 10;
+var SPRING_FACTOR = 1;
+var ELECTRICAL_FACTOR = 20000;
 var IDEAL_SPRING_LENGTH = 25;
+var GRAPH_DATA_PATH = "../data/graph.json";
+var SUCCESSOR_EDGE = "green";
+var PREDECESSOR_EDGE = "red";
+var HIGHLIGHT_COLOR = "orange";
+var TEXT_COLOR = "black";
+var TEXT_FONT = "Arial";
+var SIZE_H1 = 30;
+var SIZE_H3 = 26;
+var SIZE_H4 = 18;
+var SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
+var INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
 var VERTEX_STROKE = "#023047";
 var VERTEX_FILL = "#8ECAE6";
 var EDGE_STROKE = "grey";
 var SELECTION_FILL = "black";
 var BACKGROUND_COLOR = "rgb(245, 245, 245)";
-var biology = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"];
-var chemistry = ["chem", "chph", "scbi"];
-var engineering = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"];
-var geosciences = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"];
-var informatics = ["infr"];
-var mathematics = ["math"];
-var physics = ["pgph", "phys"];
+var BIOLOGY = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"];
+var CHEMISTRY = ["chem", "chph", "scbi"];
+var ENGINEERING = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"];
+var GEOSCIENCES = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"];
+var INFORMATICS = ["infr"];
+var MATHEMATICS = ["math"];
+var PHYSICS = ["pgph", "phys"];
+var BIOLOGY_COLOR = "#24F07C";
+var CHEMISTRY_COLOR = "#4B9B6D";
+var ENGINEERING_COLOR = "#F0CF24";
+var GEOSCIENCES_COLOR = "#706A49";
+var INFORMATICS_COLOR = "#949F99";
+var MATHEMATICS_COLOR = "#F03424";
+var PHYSICS_COLOR = "#2F24F0";
 var ZERO_VECTOR = new Vector(0, 0);
 var SECOND = 1000;
+var cameraPos = ZERO_VECTOR;
+var cameraZoom = 0;
+var zoomFactor = 1;
+var selectedVertex;
+var mousePos = ZERO_VECTOR;
+var mouseActive = false;
+var currentMouseAction = MouseAction.None;
 var canvas;
 var context;
-var cameraPos;
-var cameraZoom;
-var zoomFactor;
-var selectedVertex;
-var mousePos;
-var mouseActive = false;
 var degree;
-var currentMouseAction;
 function sigmoid(x) {
     return 1 / (1 + Math.exp(-x));
 }
@@ -69,20 +86,20 @@ function degreeToRadius(degree) {
 }
 function getColor(name) {
     name = name.substring(0, 4);
-    if (biology.includes(name))
-        return "#24F07C";
-    else if (chemistry.includes(name))
-        return "#4B9B6D";
-    else if (engineering.includes(name))
-        return "#F0CF24";
-    else if (geosciences.includes(name))
-        return "#706A49";
-    else if (informatics.includes(name))
-        return "#949F99";
-    else if (mathematics.includes(name))
-        return "#F03424";
-    else if (physics.includes(name))
-        return "#2F24F0";
+    if (BIOLOGY.includes(name))
+        return BIOLOGY_COLOR;
+    else if (CHEMISTRY.includes(name))
+        return CHEMISTRY_COLOR;
+    else if (ENGINEERING.includes(name))
+        return ENGINEERING_COLOR;
+    else if (GEOSCIENCES.includes(name))
+        return GEOSCIENCES_COLOR;
+    else if (INFORMATICS.includes(name))
+        return INFORMATICS_COLOR;
+    else if (MATHEMATICS.includes(name))
+        return MATHEMATICS_COLOR;
+    else if (PHYSICS.includes(name))
+        return PHYSICS_COLOR;
     else
         VERTEX_FILL;
 }
@@ -97,7 +114,7 @@ var Vertex = (function () {
     }
     Vertex.prototype.applyForce = function (force) { this.force = this.force.add(force); };
     Vertex.prototype.step = function () {
-        this.pos = this.pos.add(this.force.mul(VELOCITY_FACTOR * DT));
+        this.pos = this.pos.add(this.force.mul(DT));
         this.force = ZERO_VECTOR;
     };
     return Vertex;
@@ -150,8 +167,6 @@ var Renderer = (function () {
         context.stroke();
     };
     Renderer.prototype.drawRelatedVertex = function (vertex, color) {
-        var stroke = context.strokeStyle;
-        var fill = context.fillStyle;
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         context.strokeStyle = color;
         context.fillStyle = color;
@@ -163,12 +178,12 @@ var Renderer = (function () {
     Renderer.prototype.drawVertexInfo = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         var size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(degree[vertex.id])));
-        context.fillStyle = "black";
-        context.font = "".concat(size, "px Arial");
+        context.fillStyle = TEXT_COLOR;
+        context.font = "".concat(size, "px ").concat(TEXT_FONT);
         var width = context.measureText(vertex.title).width;
-        context.fillStyle = "rgba(255, 255, 255, 0.4)";
+        context.fillStyle = INFO_BG_STYLE;
         context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5);
-        context.fillStyle = "black";
+        context.fillStyle = TEXT_COLOR;
         context.fillText(vertex.title, pos.x - width / 2, pos.y);
     };
     Renderer.prototype.drawEdge = function (edge) {
@@ -177,7 +192,7 @@ var Renderer = (function () {
         if (selectedVertex == undefined) { }
         else if (edge.source.id == selectedVertex.id) {
             context.lineWidth = 3;
-            context.strokeStyle = "green";
+            context.strokeStyle = SUCCESSOR_EDGE;
             context.beginPath();
             context.moveTo(start.x, start.y);
             context.lineTo(end.x, end.y);
@@ -205,12 +220,12 @@ var Renderer = (function () {
             context.lineTo(c.x, c.y);
             context.stroke();
             context.lineWidth = 1;
-            this.drawRelatedVertex(edge.target, "green");
+            this.drawRelatedVertex(edge.target, SUCCESSOR_EDGE);
             return;
         }
         else if (edge.target.id == selectedVertex.id) {
             context.lineWidth = 3;
-            context.strokeStyle = "red";
+            context.strokeStyle = PREDECESSOR_EDGE;
             context.beginPath();
             context.moveTo(start.x, start.y);
             context.lineTo(end.x, end.y);
@@ -238,7 +253,7 @@ var Renderer = (function () {
             context.lineTo(c.x, c.y);
             context.stroke();
             context.lineWidth = 1;
-            this.drawRelatedVertex(edge.source, "red");
+            this.drawRelatedVertex(edge.source, PREDECESSOR_EDGE);
             return;
         }
         context.strokeStyle = EDGE_STROKE;
@@ -248,11 +263,11 @@ var Renderer = (function () {
         context.stroke();
     };
     Renderer.prototype.drawSidebar = function (edges) {
-        context.fillStyle = "rgba(255, 255, 255, 0.7)";
+        context.fillStyle = SIDEBAR_STYLE;
         var width = 250 * (1 + sigmoid(canvas.width / 200 - 7));
         context.fillRect(canvas.width - width, 0, width, canvas.height);
-        context.fillStyle = "black";
-        context.font = "30px Arial";
+        context.fillStyle = TEXT_COLOR;
+        context.font = "".concat(SIZE_H1, "px ").concat(TEXT_FONT);
         var title = "Click to Select";
         if (selectedVertex != undefined)
             title = selectedVertex.title;
@@ -262,7 +277,7 @@ var Renderer = (function () {
         }
         if (selectedVertex == undefined)
             return;
-        context.font = "18px Arial";
+        context.font = "".concat(SIZE_H4, "px ").concat(TEXT_FONT);
         var pre = [];
         var suc = [];
         for (var i = 0; i < edges.length; i++) {
@@ -274,10 +289,10 @@ var Renderer = (function () {
                 pre = pre.concat(splitText(edge.source.title, width - 20));
             }
         }
-        context.font = "26px Arial";
+        context.font = "".concat(SIZE_H3, "px ").concat(TEXT_FONT, "}");
         context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5);
         context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3));
-        context.font = "18px Arial";
+        context.font = "".concat(SIZE_H4, "px ").concat(TEXT_FONT);
         for (var i_2 = 0; i_2 < pre.length; i_2++) {
             context.fillText(pre[i_2], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i_2 + 1));
         }
@@ -342,7 +357,7 @@ var PhysicsEngine = (function () {
             _this.renderer.drawEdge(edge);
         });
         if (selectedVertex != undefined) {
-            this.renderer.drawRelatedVertex(selectedVertex, "orange");
+            this.renderer.drawRelatedVertex(selectedVertex, HIGHLIGHT_COLOR);
         }
         this.graph.vertices.forEach(function (vertex) {
             _this.renderer.drawVertex(vertex);
@@ -368,7 +383,7 @@ var PhysicsEngine = (function () {
     };
     PhysicsEngine.prototype.mousePullForce = function (vertex) {
         var r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
-        var force = r_vec.mul(1 / 7);
+        var force = r_vec;
         return force;
     };
     return PhysicsEngine;
@@ -413,15 +428,12 @@ var App = (function () {
     return App;
 }());
 window.onload = function () {
-    fetch('../data/graph.json')
+    fetch(GRAPH_DATA_PATH)
         .then(function (response) { return response.json(); })
         .then(function (json) { return start(json); });
 };
 function start(data) {
     canvas = document.getElementById("frame");
     context = canvas.getContext("2d");
-    cameraPos = ZERO_VECTOR;
-    cameraZoom = 0;
-    zoomFactor = 1;
     new App(data);
 }
