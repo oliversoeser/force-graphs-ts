@@ -29,13 +29,18 @@ class Vector {
 
     // Scalar Multiplication
     mul(factor: number): Vector { return new Vector(this.x * factor, this.y * factor); }
+
+    // Normal on the vector
+    normal(): Vector { return new Vector(-this.y, this.x) }
 }
 
-const DT = 1 / 20;
+const DT = 1 / 30;
 
 const SPRING_FACTOR = 1;
 const MOUSE_SPRING_FACTOR = 10;
 const ELECTRICAL_FACTOR = 20000;
+
+const MAX_VELOCITY = 500;
 
 const IDEAL_SPRING_LENGTH = 25;
 
@@ -51,6 +56,8 @@ const TEXT_FONT = "Arial";
 const SIZE_H1 = 30;
 const SIZE_H2 = 26;
 const SIZE_H4 = 18;
+
+const ARROW_SIZE = 7;
 
 const SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
 const INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
@@ -92,17 +99,23 @@ let currentMouseAction: MouseAction = MouseAction.None;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 
+// The standard logistic function
 function sigmoid(x: number): number {
     return 1 / (1 + Math.exp(-x));
 }
 
-function splitText(text: string, maxWidth: number): string[] {
+// The general general logistic function
+function logistic(supremum: number, growthRate: number, midpoint: number, x: number): number {
+    return supremum * sigmoid(growthRate * (x - midpoint));
+}
+
+function splitText(text: string, boxWidth: number): string[] {
     let words = text.split(" ");
 
     let lines = [];
     let substring = words[0];
     for (let i = 1; i < words.length; i++) {
-        if (context.measureText(substring + " " + words[i]).width >= maxWidth) {
+        if (context.measureText(substring + " " + words[i]).width >= boxWidth) {
             lines.push(substring)
             substring = words[i];
         } else {
@@ -114,7 +127,7 @@ function splitText(text: string, maxWidth: number): string[] {
 }
 
 function degreeToRadius(degree: number): number {
-    return 10 * zoomFactor * (0.7*sigmoid(degree-5) + 0.5)
+    return zoomFactor * (logistic(7, 1, 5, degree) + 5)
 }
 
 function getColor(key: string): string {
@@ -136,6 +149,18 @@ function fillTriangle(a: Vector, b: Vector, c: Vector) {
     context.lineTo(c.x, c.y);
     context.lineTo(a.x, a.y);
     context.fill();
+}
+
+function circlePath(pos: Vector, radius: number) {
+    context.beginPath();
+    context.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
+}
+
+function drawLine(start: Vector, end: Vector) {
+    context.beginPath()
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.stroke();
 }
 
 function randomVectorInRange(x_min: number, x_max: number, y_min: number, y_max: number): Vector {
@@ -166,8 +191,13 @@ class Vertex {
 
     // Apply force directly as velocity
     step() {
+        let F = this.force.size();
+        if (F > MAX_VELOCITY) this.force = this.force.mul(MAX_VELOCITY/F);
+
         this.pos = this.pos.add(this.force.mul(DT));
         this.force = ZERO_VECTOR; // Reset force
+
+        console.log(this.pos);
     }
 }
 
@@ -196,15 +226,13 @@ class Graph {
         }
 
         data.edges.forEach(edge => {
-            let sId: number;
-            let tId: number;
-            this.vertices.forEach(vertex => {
-                if (vertex.key == edge.source) sId = vertex.id;
-                else if (vertex.key == edge.target) tId = vertex.id;
-            });
+            let source: Vertex;
+            let target: Vertex;
 
-            let source = this.vertices[sId];
-            let target = this.vertices[tId];
+            this.vertices.forEach(vertex => {
+                if (vertex.key == edge.source) source = vertex;
+                else if (vertex.key == edge.target) target = vertex;
+            });
 
             this.edges.push(new Edge(source, target));
 
@@ -220,8 +248,8 @@ class Renderer {
     }
 
     fitCanvasToWindow() {
-        canvas.width = window.innerWidth + 1;
-        canvas.height = window.innerHeight + 1;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
     }
 
     drawVertex(vertex: Vertex) {
@@ -231,36 +259,32 @@ class Renderer {
         context.strokeStyle = VERTEX_STROKE
         context.lineWidth = 1;
 
-        context.beginPath();
-        context.arc(pos.x, pos.y, degreeToRadius(vertex.degree), 0, 2 * Math.PI);
+        circlePath(pos, degreeToRadius(vertex.degree))
         context.fill();
         context.stroke();
     }
 
     drawRelatedVertex(vertex: Vertex, color: string) {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
-        context.strokeStyle = color;
+        
         context.fillStyle = color;
-        context.beginPath();
-        context.arc(pos.x, pos.y, 3 + degreeToRadius(vertex.degree), 0, 2 * Math.PI);
+
+        circlePath(pos, 3 + degreeToRadius(vertex.degree))
         context.fill();
     }
 
     drawVertexInfo(vertex: Vertex) {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
-
-        // Sigmoid curve to keep the text within a readable range
-        let size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(vertex.degree)));
+        let size = 14 + logistic(8, 1, 6, vertex.degree);
 
         context.fillStyle = TEXT_COLOR;
         context.font = `${size}px ${TEXT_FONT}`;
 
-
-        let width = context.measureText(vertex.title).width
+        let width = context.measureText(vertex.title).width;
 
         context.fillStyle = INFO_BG_STYLE;
 
-        context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5)
+        context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5);
 
         context.fillStyle = TEXT_COLOR;
         context.fillText(vertex.title, pos.x - width / 2, pos.y);
@@ -270,67 +294,51 @@ class Renderer {
         let start = edge.source.pos.add(cameraPos).mul(zoomFactor);
         let end = edge.target.pos.add(cameraPos).mul(zoomFactor);
 
-        if (selectedVertex == undefined) { }
-        else if (edge.source.id == selectedVertex.id) {
-            context.lineWidth = 3;
-            context.strokeStyle = SUCCESSOR_EDGE;
-            context.fillStyle = SUCCESSOR_EDGE;
-            context.beginPath()
-            context.moveTo(start.x, start.y);
-            context.lineTo(end.x, end.y);
-            context.stroke();
-
-            let line = end.to(start);
-            let u_dir = line.mul(1 / line.size());
-            let normal_dir = new Vector(-u_dir.y, u_dir.x);
-
-            let midpoint = end.add(line.mul(0.5))
-            let a = midpoint.add(normal_dir.mul(7));
-            let b = midpoint.sub(normal_dir.mul(7));
-            let c = midpoint.add(u_dir.mul(-8));
-
-            fillTriangle(a, b, c);
-
-            this.drawRelatedVertex(edge.target, SUCCESSOR_EDGE);
-            return
-        } else if (edge.target.id == selectedVertex.id) {
-            context.lineWidth = 3;
-            context.strokeStyle = PREDECESSOR_EDGE;
-            context.fillStyle = PREDECESSOR_EDGE;
-            context.beginPath()
-            context.moveTo(start.x, start.y);
-            context.lineTo(end.x, end.y);
-            context.stroke();
-
-            let line = start.to(end);
-            let len = line.size();
-            let u_dir = line.mul(1 / len);
-            let normal_dir = new Vector(-u_dir.y, u_dir.x);
-
-            let midpoint = start.add(u_dir.mul(len / 2))
-            let a = midpoint.add(normal_dir.mul(7));
-            let b = midpoint.sub(normal_dir.mul(7));
-            let c = midpoint.add(u_dir.mul(8));
-
-            fillTriangle(a, b, c);
-
-            this.drawRelatedVertex(edge.source, PREDECESSOR_EDGE);
-            return
-        }
-
         context.lineWidth = 1;
         context.strokeStyle = EDGE_STROKE;
 
-        context.beginPath()
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
-        context.stroke();
+        drawLine(start, end);
+
+        if (selectedVertex != undefined) {
+            context.lineWidth = 3;
+
+            let vertex; Vertex;
+
+            if (edge.source.id == selectedVertex.id) {
+                context.strokeStyle = SUCCESSOR_EDGE;
+                context.fillStyle = SUCCESSOR_EDGE;
+
+                vertex = edge.target;
+            }
+            else if (edge.target.id == selectedVertex.id) {
+                context.strokeStyle = PREDECESSOR_EDGE;
+                context.fillStyle = PREDECESSOR_EDGE;
+
+                vertex = edge.source;
+            }
+
+            if (vertex != undefined) {
+                drawLine(start, end)
+
+                let line = start.to(end);
+                let midpoint = start.add(line.mul(1/2))
+
+                let v = line.mul(ARROW_SIZE / line.size());
+                let p = midpoint.sub(v);
+                let n = v.normal();
+
+                fillTriangle(p.add(n), p.sub(n), p.add(v.mul(2)));
+                
+                this.drawRelatedVertex(vertex, PREDECESSOR_EDGE);
+            }
+        }
     }
 
     drawSidebar(edges: Edge[]) {
         context.fillStyle = SIDEBAR_STYLE;
 
-        let width = 250 * (1 + sigmoid(canvas.width / 200 - 7));
+        let width = 250 + logistic(250, 1/200, 1400, canvas.width);
+
         context.fillRect(canvas.width - width, 0, width, canvas.height)
 
         context.fillStyle = TEXT_COLOR;
@@ -395,14 +403,6 @@ class PhysicsEngine {
         this.renderer = new Renderer();
         this.graph = new Graph(data);
 
-        this.graph.vertices.forEach(vertex => {
-            this.renderer.drawVertex(vertex);
-        });
-
-        this.graph.edges.forEach(edge => {
-            this.renderer.drawEdge(edge);
-        });
-
         setInterval(this.step.bind(this), DT * SECOND);
     }
 
@@ -412,35 +412,34 @@ class PhysicsEngine {
     }
 
     stepPhysics() {
-        for (let id = 0; id < this.graph.vertices.length; id++) {
-            let vertex = this.graph.vertices[id];
-
-            // Repulsion
-            this.graph.vertices.forEach(other => {
-                vertex.applyForce(this.electricalForce(vertex, other));
-            });
-        }
-
-        // Spring forces
-        this.graph.edges.forEach(edge => {
-            let force = this.springForce(edge);
-            edge.source.applyForce(force);
-            edge.target.applyForce(force.mul(-1));
-        });
-
-        // Mouse force
+        // Selected Vertex
         if (selectedVertex != undefined && mouseActive && currentMouseAction == MouseAction.MoveVertex) {
             selectedVertex.applyForce(this.mousePullForce(selectedVertex));
         }
 
-        this.graph.vertices.forEach(vertex => {
-            vertex.step();
+        // Edges
+        this.graph.edges.forEach(edge => {
+            // Spring forces - attraction
+            let force = this.springForce(edge);
+            edge.source.applyForce(force);
+            edge.target.applyForce(force.mul(-1));
         });
+        
+        // Vertices
+        this.graph.vertices.forEach(vertex => {
+            // Electrical forces - repulsion
+            this.graph.vertices.forEach(other => {
+                vertex.applyForce(this.electricalForce(vertex, other));
+            });
+
+            // Move vertex
+            vertex.step();
+        })
     }
 
     // Render Graph
     stepDraw() {
-        // Reset canvas
+        // Reset Canvas
         this.renderer.fitCanvasToWindow();
         this.renderer.clear();
 
@@ -449,6 +448,7 @@ class PhysicsEngine {
             this.renderer.drawEdge(edge);
         });
 
+        // Highlight Selected Vertex
         if (selectedVertex != undefined) {
             this.renderer.drawRelatedVertex(selectedVertex, HIGHLIGHT_COLOR);
         }
@@ -470,28 +470,34 @@ class PhysicsEngine {
     }
 
     // Keep adjacent Vertices together
-    // Hooke's law: F = kx
     springForce(edge: Edge): Vector {
         let r_vec = edge.source.pos.to(edge.target.pos);
-        let d = r_vec.size();
-        let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * (d - IDEAL_SPRING_LENGTH));
-        return force
-    }
+        let r = r_vec.size();
 
-    // Keep (unconnected) Vertices apart
-    // Coulomb's law: |F| = k * (|q1| |q2|) / (r^2)
-    electricalForce(v1: Vertex, v2: Vertex): Vector {
-        let r_vec = v2.pos.to(v1.pos);
-        let d = Math.max(r_vec.size(), 17);
-        let force = r_vec.mul(1/d).mul(ELECTRICAL_FACTOR / (d*d));
+        if (r == 0) return ZERO_VECTOR
+
+        let force = r_vec.mul((SPRING_FACTOR * (r - IDEAL_SPRING_LENGTH)) / r);
+
         return force;
     }
 
-    // Mouse pull, also a spring force following Hooke's law
+    // Keep (unconnected) Vertices apart
+    electricalForce(v1: Vertex, v2: Vertex): Vector {
+        let r_vec = v2.pos.to(v1.pos);
+        let r = r_vec.size();
+        
+        if (r == 0) return ZERO_VECTOR;
+
+        let force = r_vec.mul(ELECTRICAL_FACTOR / (r**3));
+
+        return force;
+    }
+
+    // Mouse Pull
     mousePullForce(vertex: Vertex): Vector {
         let r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
-        let d = r_vec.size();
-        let force = r_vec.mul(1 / d).mul(MOUSE_SPRING_FACTOR * d);
+        let force = r_vec.mul(MOUSE_SPRING_FACTOR);
+
         return force;
     }
 }
@@ -541,7 +547,7 @@ class App {
         });
 
         canvas.addEventListener("wheel", (ev: WheelEvent) => {
-            cameraZoom += ev.deltaY * -1;
+            cameraZoom -= ev.deltaY;
             zoomFactor = this.zoomFactor(cameraZoom);
         })
     }

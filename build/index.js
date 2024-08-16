@@ -14,12 +14,14 @@ var Vector = (function () {
     Vector.prototype.to = function (other) { return new Vector(other.x - this.x, other.y - this.y); };
     Vector.prototype.size = function () { return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2)); };
     Vector.prototype.mul = function (factor) { return new Vector(this.x * factor, this.y * factor); };
+    Vector.prototype.normal = function () { return new Vector(-this.y, this.x); };
     return Vector;
 }());
-var DT = 1 / 20;
+var DT = 1 / 30;
 var SPRING_FACTOR = 1;
 var MOUSE_SPRING_FACTOR = 10;
 var ELECTRICAL_FACTOR = 20000;
+var MAX_VELOCITY = 500;
 var IDEAL_SPRING_LENGTH = 25;
 var GRAPH_DATA_PATH = "../data/graph.json";
 var SUCCESSOR_EDGE = "#3a86ff";
@@ -30,6 +32,7 @@ var TEXT_FONT = "Arial";
 var SIZE_H1 = 30;
 var SIZE_H2 = 26;
 var SIZE_H4 = 18;
+var ARROW_SIZE = 7;
 var SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
 var INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
 var VERTEX_STROKE = "#023047";
@@ -65,6 +68,9 @@ var context;
 function sigmoid(x) {
     return 1 / (1 + Math.exp(-x));
 }
+function logistic(supremum, growthRate, midpoint, x) {
+    return supremum * sigmoid(growthRate * (x - midpoint));
+}
 function splitText(text, maxWidth) {
     var words = text.split(" ");
     var lines = [];
@@ -82,7 +88,7 @@ function splitText(text, maxWidth) {
     return lines;
 }
 function degreeToRadius(degree) {
-    return 10 * zoomFactor * (0.7 * sigmoid(degree - 5) + 0.5);
+    return zoomFactor * (logistic(7, 1, 5, degree) + 5);
 }
 function getColor(key) {
     key = key.substring(0, 4);
@@ -111,6 +117,16 @@ function fillTriangle(a, b, c) {
     context.lineTo(a.x, a.y);
     context.fill();
 }
+function circlePath(pos, radius) {
+    context.beginPath();
+    context.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
+}
+function drawLine(start, end) {
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.stroke();
+}
 function randomVectorInRange(x_min, x_max, y_min, y_max) {
     return new Vector(x_min + Math.random() * (x_max - x_min), y_min + Math.random() * (y_max - y_min));
 }
@@ -126,8 +142,12 @@ var Vertex = (function () {
     }
     Vertex.prototype.applyForce = function (force) { this.force = this.force.add(force); };
     Vertex.prototype.step = function () {
+        var F = this.force.size();
+        if (F > MAX_VELOCITY)
+            this.force = this.force.mul(MAX_VELOCITY / F);
         this.pos = this.pos.add(this.force.mul(DT));
         this.force = ZERO_VECTOR;
+        console.log(this.pos);
     };
     return Vertex;
 }());
@@ -149,16 +169,14 @@ var Graph = (function () {
             this.vertices.push(new Vertex(pos, id, vertex.key, vertex.title, getColor(vertex.key)));
         }
         data.edges.forEach(function (edge) {
-            var sId;
-            var tId;
+            var source;
+            var target;
             _this.vertices.forEach(function (vertex) {
                 if (vertex.key == edge.source)
-                    sId = vertex.id;
+                    source = vertex;
                 else if (vertex.key == edge.target)
-                    tId = vertex.id;
+                    target = vertex;
             });
-            var source = _this.vertices[sId];
-            var target = _this.vertices[tId];
             _this.edges.push(new Edge(source, target));
             source.degree++;
             target.degree++;
@@ -171,30 +189,27 @@ var Renderer = (function () {
         this.fitCanvasToWindow();
     }
     Renderer.prototype.fitCanvasToWindow = function () {
-        canvas.width = window.innerWidth + 1;
-        canvas.height = window.innerHeight + 1;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
     };
     Renderer.prototype.drawVertex = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         context.fillStyle = vertex.color;
         context.strokeStyle = VERTEX_STROKE;
         context.lineWidth = 1;
-        context.beginPath();
-        context.arc(pos.x, pos.y, degreeToRadius(vertex.degree), 0, 2 * Math.PI);
+        circlePath(pos, degreeToRadius(vertex.degree));
         context.fill();
         context.stroke();
     };
     Renderer.prototype.drawRelatedVertex = function (vertex, color) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
-        context.strokeStyle = color;
         context.fillStyle = color;
-        context.beginPath();
-        context.arc(pos.x, pos.y, 3 + degreeToRadius(vertex.degree), 0, 2 * Math.PI);
+        circlePath(pos, 3 + degreeToRadius(vertex.degree));
         context.fill();
     };
     Renderer.prototype.drawVertexInfo = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
-        var size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(vertex.degree)));
+        var size = 14 + logistic(8, 1, 6, vertex.degree);
         context.fillStyle = TEXT_COLOR;
         context.font = "".concat(size, "px ").concat(TEXT_FONT);
         var width = context.measureText(vertex.title).width;
@@ -206,56 +221,49 @@ var Renderer = (function () {
     Renderer.prototype.drawEdge = function (edge) {
         var start = edge.source.pos.add(cameraPos).mul(zoomFactor);
         var end = edge.target.pos.add(cameraPos).mul(zoomFactor);
-        if (selectedVertex == undefined) { }
-        else if (edge.source.id == selectedVertex.id) {
-            context.lineWidth = 3;
-            context.strokeStyle = SUCCESSOR_EDGE;
-            context.fillStyle = SUCCESSOR_EDGE;
-            context.beginPath();
-            context.moveTo(start.x, start.y);
-            context.lineTo(end.x, end.y);
-            context.stroke();
-            var line = end.to(start);
-            var u_dir = line.mul(1 / line.size());
-            var normal_dir = new Vector(-u_dir.y, u_dir.x);
-            var midpoint = end.add(line.mul(0.5));
-            var a = midpoint.add(normal_dir.mul(7));
-            var b = midpoint.sub(normal_dir.mul(7));
-            var c = midpoint.add(u_dir.mul(-8));
-            fillTriangle(a, b, c);
-            this.drawRelatedVertex(edge.target, SUCCESSOR_EDGE);
-            return;
-        }
-        else if (edge.target.id == selectedVertex.id) {
-            context.lineWidth = 3;
-            context.strokeStyle = PREDECESSOR_EDGE;
-            context.fillStyle = PREDECESSOR_EDGE;
-            context.beginPath();
-            context.moveTo(start.x, start.y);
-            context.lineTo(end.x, end.y);
-            context.stroke();
-            var line = start.to(end);
-            var len = line.size();
-            var u_dir = line.mul(1 / len);
-            var normal_dir = new Vector(-u_dir.y, u_dir.x);
-            var midpoint = start.add(u_dir.mul(len / 2));
-            var a = midpoint.add(normal_dir.mul(7));
-            var b = midpoint.sub(normal_dir.mul(7));
-            var c = midpoint.add(u_dir.mul(8));
-            fillTriangle(a, b, c);
-            this.drawRelatedVertex(edge.source, PREDECESSOR_EDGE);
-            return;
-        }
         context.lineWidth = 1;
         context.strokeStyle = EDGE_STROKE;
         context.beginPath();
         context.moveTo(start.x, start.y);
         context.lineTo(end.x, end.y);
         context.stroke();
+        if (selectedVertex != undefined) {
+            context.lineWidth = 3;
+            var vertex = void 0;
+            Vertex;
+            var p = void 0;
+            var n = void 0;
+            var v = void 0;
+            if (edge.source.id == selectedVertex.id) {
+                context.strokeStyle = SUCCESSOR_EDGE;
+                context.fillStyle = SUCCESSOR_EDGE;
+                var line = start.to(end);
+                var midpoint = start.add(line.mul(1 / 2));
+                v = line.mul(ARROW_SIZE / line.size());
+                n = v.normal();
+                p = midpoint.sub(v);
+                vertex = edge.target;
+            }
+            else if (edge.target.id == selectedVertex.id) {
+                context.strokeStyle = PREDECESSOR_EDGE;
+                context.fillStyle = PREDECESSOR_EDGE;
+                var line = start.to(end);
+                var midpoint = start.add(line.mul(1 / 2));
+                v = line.mul(ARROW_SIZE / line.size());
+                n = v.normal();
+                p = midpoint.sub(v);
+                vertex = edge.source;
+            }
+            if (vertex != undefined) {
+                drawLine(start, end);
+                fillTriangle(p.add(n), p.sub(n), p.add(v.mul(2)));
+                this.drawRelatedVertex(vertex, PREDECESSOR_EDGE);
+            }
+        }
     };
     Renderer.prototype.drawSidebar = function (edges) {
         context.fillStyle = SIDEBAR_STYLE;
-        var width = 250 * (1 + sigmoid(canvas.width / 200 - 7));
+        var width = 250 + logistic(250, 1 / 200, 1400, canvas.width);
         context.fillRect(canvas.width - width, 0, width, canvas.height);
         context.fillStyle = TEXT_COLOR;
         context.font = "".concat(SIZE_H1, "px ").concat(TEXT_FONT);
@@ -301,15 +309,8 @@ var Renderer = (function () {
 }());
 var PhysicsEngine = (function () {
     function PhysicsEngine(data) {
-        var _this = this;
         this.renderer = new Renderer();
         this.graph = new Graph(data);
-        this.graph.vertices.forEach(function (vertex) {
-            _this.renderer.drawVertex(vertex);
-        });
-        this.graph.edges.forEach(function (edge) {
-            _this.renderer.drawEdge(edge);
-        });
         setInterval(this.step.bind(this), DT * SECOND);
     }
     PhysicsEngine.prototype.step = function () {
@@ -318,25 +319,18 @@ var PhysicsEngine = (function () {
     };
     PhysicsEngine.prototype.stepPhysics = function () {
         var _this = this;
-        var _loop_1 = function (id) {
-            var vertex = this_1.graph.vertices[id];
-            this_1.graph.vertices.forEach(function (other) {
-                vertex.applyForce(_this.electricalForce(vertex, other));
-            });
-        };
-        var this_1 = this;
-        for (var id = 0; id < this.graph.vertices.length; id++) {
-            _loop_1(id);
+        if (selectedVertex != undefined && mouseActive && currentMouseAction == MouseAction.MoveVertex) {
+            selectedVertex.applyForce(this.mousePullForce(selectedVertex));
         }
         this.graph.edges.forEach(function (edge) {
             var force = _this.springForce(edge);
             edge.source.applyForce(force);
             edge.target.applyForce(force.mul(-1));
         });
-        if (selectedVertex != undefined && mouseActive && currentMouseAction == MouseAction.MoveVertex) {
-            selectedVertex.applyForce(this.mousePullForce(selectedVertex));
-        }
         this.graph.vertices.forEach(function (vertex) {
+            _this.graph.vertices.forEach(function (other) {
+                vertex.applyForce(_this.electricalForce(vertex, other));
+            });
             vertex.step();
         });
     };
@@ -362,20 +356,23 @@ var PhysicsEngine = (function () {
     };
     PhysicsEngine.prototype.springForce = function (edge) {
         var r_vec = edge.source.pos.to(edge.target.pos);
-        var d = r_vec.size();
-        var force = r_vec.mul(1 / d).mul(SPRING_FACTOR * (d - IDEAL_SPRING_LENGTH));
+        var r = r_vec.size();
+        if (r == 0)
+            return ZERO_VECTOR;
+        var force = r_vec.mul((SPRING_FACTOR * (r - IDEAL_SPRING_LENGTH)) / r);
         return force;
     };
     PhysicsEngine.prototype.electricalForce = function (v1, v2) {
         var r_vec = v2.pos.to(v1.pos);
-        var d = Math.max(r_vec.size(), 17);
-        var force = r_vec.mul(1 / d).mul(ELECTRICAL_FACTOR / (d * d));
+        var r = r_vec.size();
+        if (r == 0)
+            return ZERO_VECTOR;
+        var force = r_vec.mul(ELECTRICAL_FACTOR / (Math.pow(r, 3)));
         return force;
     };
     PhysicsEngine.prototype.mousePullForce = function (vertex) {
         var r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
-        var d = r_vec.size();
-        var force = r_vec.mul(1 / d).mul(MOUSE_SPRING_FACTOR * d);
+        var force = r_vec.mul(MOUSE_SPRING_FACTOR);
         return force;
     };
     return PhysicsEngine;
@@ -413,7 +410,7 @@ var App = (function () {
             mouseActive = false;
         });
         canvas.addEventListener("wheel", function (ev) {
-            cameraZoom += ev.deltaY * -1;
+            cameraZoom -= ev.deltaY;
             zoomFactor = _this.zoomFactor(cameraZoom);
         });
     }
