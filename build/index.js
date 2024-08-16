@@ -393,7 +393,7 @@ var App = (function () {
         canvas.addEventListener("mousemove", function (ev) {
             var newMousePos = new Vector(ev.x, ev.y);
             if (currentMouseAction == MouseAction.MoveCamera) {
-                var delta = mousePos.to(newMousePos);
+                var delta = mousePos.to(newMousePos).mul(1 / zoomFactor);
                 cameraPos = cameraPos.add(delta);
             }
             mousePos = newMousePos;

@@ -519,7 +519,7 @@ class App {
 
             // Move Camera
             if (currentMouseAction == MouseAction.MoveCamera) {
-                let delta = mousePos.to(newMousePos);
+                let delta = mousePos.to(newMousePos).mul(1/zoomFactor);
                 cameraPos = cameraPos.add(delta);
             }
 
