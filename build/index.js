@@ -62,7 +62,6 @@ var mouseActive = false;
 var currentMouseAction = MouseAction.None;
 var canvas;
 var context;
-var degree;
 function sigmoid(x) {
     return 1 / (1 + Math.exp(-x));
 }
@@ -85,21 +84,21 @@ function splitText(text, maxWidth) {
 function degreeToRadius(degree) {
     return 10 * zoomFactor * (0.7 * sigmoid(degree - 5) + 0.5);
 }
-function getColor(name) {
-    name = name.substring(0, 4);
-    if (BIOLOGY.includes(name))
+function getColor(key) {
+    key = key.substring(0, 4);
+    if (BIOLOGY.includes(key))
         return BIOLOGY_COLOR;
-    else if (CHEMISTRY.includes(name))
+    else if (CHEMISTRY.includes(key))
         return CHEMISTRY_COLOR;
-    else if (ENGINEERING.includes(name))
+    else if (ENGINEERING.includes(key))
         return ENGINEERING_COLOR;
-    else if (GEOSCIENCES.includes(name))
+    else if (GEOSCIENCES.includes(key))
         return GEOSCIENCES_COLOR;
-    else if (INFORMATICS.includes(name))
+    else if (INFORMATICS.includes(key))
         return INFORMATICS_COLOR;
-    else if (MATHEMATICS.includes(name))
+    else if (MATHEMATICS.includes(key))
         return MATHEMATICS_COLOR;
-    else if (PHYSICS.includes(name))
+    else if (PHYSICS.includes(key))
         return PHYSICS_COLOR;
     else
         VERTEX_FILL;
@@ -112,14 +111,18 @@ function fillTriangle(a, b, c) {
     context.lineTo(a.x, a.y);
     context.fill();
 }
+function randomVectorInRange(x_min, x_max, y_min, y_max) {
+    return new Vector(x_min + Math.random() * (x_max - x_min), y_min + Math.random() * (y_max - y_min));
+}
 var Vertex = (function () {
-    function Vertex(pos, id, name, title, color) {
+    function Vertex(pos, id, key, title, color) {
         this.pos = pos;
         this.force = ZERO_VECTOR;
         this.id = id;
-        this.name = name;
+        this.key = key;
         this.title = title;
         this.color = color;
+        this.degree = 0;
     }
     Vertex.prototype.applyForce = function (force) { this.force = this.force.add(force); };
     Vertex.prototype.step = function () {
@@ -140,20 +143,25 @@ var Graph = (function () {
         var _this = this;
         this.vertices = new Array();
         this.edges = new Array();
-        this.nameToId = {};
-        degree = new Array();
         for (var id = 0; id < data.vertices.length; id++) {
-            var vdata = data.vertices[id];
-            this.nameToId[vdata.name] = id;
-            this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title, getColor(vdata.name)));
-            degree.push(0);
+            var vertex = data.vertices[id];
+            var pos = randomVectorInRange(0, canvas.width, 0, canvas.height);
+            this.vertices.push(new Vertex(pos, id, vertex.key, vertex.title, getColor(vertex.key)));
         }
-        data.edges.forEach(function (edata) {
-            var sId = _this.nameToId[edata.sourcename];
-            var tId = _this.nameToId[edata.targetname];
-            _this.edges.push(new Edge(_this.vertices[sId], _this.vertices[tId]));
-            degree[sId]++;
-            degree[tId]++;
+        data.edges.forEach(function (edge) {
+            var sId;
+            var tId;
+            _this.vertices.forEach(function (vertex) {
+                if (vertex.key == edge.source)
+                    sId = vertex.id;
+                else if (vertex.key == edge.target)
+                    tId = vertex.id;
+            });
+            var source = _this.vertices[sId];
+            var target = _this.vertices[tId];
+            _this.edges.push(new Edge(source, target));
+            source.degree++;
+            target.degree++;
         });
     }
     return Graph;
@@ -172,7 +180,7 @@ var Renderer = (function () {
         context.strokeStyle = VERTEX_STROKE;
         context.lineWidth = 1;
         context.beginPath();
-        context.arc(pos.x, pos.y, degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, degreeToRadius(vertex.degree), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
     };
@@ -181,12 +189,12 @@ var Renderer = (function () {
         context.strokeStyle = color;
         context.fillStyle = color;
         context.beginPath();
-        context.arc(pos.x, pos.y, 3 + degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, 3 + degreeToRadius(vertex.degree), 0, 2 * Math.PI);
         context.fill();
     };
     Renderer.prototype.drawVertexInfo = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
-        var size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(degree[vertex.id])));
+        var size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(vertex.degree)));
         context.fillStyle = TEXT_COLOR;
         context.font = "".concat(size, "px ").concat(TEXT_FONT);
         var width = context.measureText(vertex.title).width;
@@ -346,7 +354,7 @@ var PhysicsEngine = (function () {
             _this.renderer.drawVertex(vertex);
         });
         this.graph.vertices.forEach(function (vertex) {
-            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < degreeToRadius(degree[vertex.id])) {
+            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < degreeToRadius(vertex.degree)) {
                 _this.renderer.drawVertexInfo(vertex);
             }
         });
@@ -383,7 +391,7 @@ var App = (function () {
             currentMouseAction = MouseAction.MoveCamera;
             mouseActive = true;
             _this.springEmbedder.graph.vertices.forEach(function (vertex) {
-                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < degreeToRadius(degree[vertex.id])) {
+                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < degreeToRadius(vertex.degree)) {
                     selectedVertex = vertex;
                     currentMouseAction = MouseAction.MoveVertex;
                 }

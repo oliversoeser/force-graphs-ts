@@ -1,9 +1,5 @@
-interface Dictionary<T> {
-    [Key: string]: T;
-}
-
-type VertexData = { name: string; title: string; };
-type EdgeData = { sourcename: string; targetname: string; };
+type VertexData = { key: string; title: string; };
+type EdgeData = { source: string; target: string; };
 type GraphData = { vertices: VertexData[]; edges: EdgeData[]; };
 
 enum MouseAction {
@@ -96,8 +92,6 @@ let currentMouseAction: MouseAction = MouseAction.None;
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 
-let degree: number[];
-
 function sigmoid(x: number): number {
     return 1 / (1 + Math.exp(-x));
 }
@@ -119,19 +113,19 @@ function splitText(text: string, maxWidth: number): string[] {
     return lines;
 }
 
-function degreeToRadius(degree: number) {
+function degreeToRadius(degree: number): number {
     return 10 * zoomFactor * (0.7*sigmoid(degree-5) + 0.5)
 }
 
-function getColor(name: string): string {
-    name = name.substring(0, 4)
-    if (BIOLOGY.includes(name)) return BIOLOGY_COLOR;
-    else if (CHEMISTRY.includes(name)) return CHEMISTRY_COLOR;
-    else if (ENGINEERING.includes(name)) return ENGINEERING_COLOR;
-    else if (GEOSCIENCES.includes(name)) return GEOSCIENCES_COLOR;
-    else if (INFORMATICS.includes(name)) return INFORMATICS_COLOR;
-    else if (MATHEMATICS.includes(name)) return MATHEMATICS_COLOR;
-    else if (PHYSICS.includes(name)) return PHYSICS_COLOR;
+function getColor(key: string): string {
+    key = key.substring(0, 4);
+    if (BIOLOGY.includes(key)) return BIOLOGY_COLOR;
+    else if (CHEMISTRY.includes(key)) return CHEMISTRY_COLOR;
+    else if (ENGINEERING.includes(key)) return ENGINEERING_COLOR;
+    else if (GEOSCIENCES.includes(key)) return GEOSCIENCES_COLOR;
+    else if (INFORMATICS.includes(key)) return INFORMATICS_COLOR;
+    else if (MATHEMATICS.includes(key)) return MATHEMATICS_COLOR;
+    else if (PHYSICS.includes(key)) return PHYSICS_COLOR;
     else VERTEX_FILL;
 }
 
@@ -144,21 +138,27 @@ function fillTriangle(a: Vector, b: Vector, c: Vector) {
     context.fill();
 }
 
+function randomVectorInRange(x_min: number, x_max: number, y_min: number, y_max: number): Vector {
+    return new Vector(x_min + Math.random() * (x_max - x_min), y_min + Math.random() * (y_max - y_min));
+}
+
 class Vertex {
     public pos: Vector; // Position
     private force: Vector; // Total force applied in the current step
     public readonly id: number;
-    public readonly name: string;
+    public readonly key: string;
     public readonly title: string;
     public readonly color: string;
+    public degree: number;
 
-    constructor(pos: Vector, id: number, name: string, title: string, color: string) {
+    constructor(pos: Vector, id: number, key: string, title: string, color: string) {
         this.pos = pos;
         this.force = ZERO_VECTOR;
         this.id = id;
-        this.name = name;
+        this.key = key;
         this.title = title;
         this.color = color;
+        this.degree = 0;
     }
 
     // Sum forces
@@ -185,31 +185,31 @@ class Graph {
     public vertices: Vertex[];
     public edges: Edge[];
 
-    public nameToId: Dictionary<number>;
-
     constructor(data: GraphData) {
         this.vertices = new Array();
         this.edges = new Array();
 
-        this.nameToId = {};
-
-        degree = new Array();
-
         for (let id = 0; id < data.vertices.length; id++) {
-            let vdata = data.vertices[id];
-            this.nameToId[vdata.name] = id;
-            this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title, getColor(vdata.name)));
-            degree.push(0);
+            let vertex = data.vertices[id];
+            let pos = randomVectorInRange(0, canvas.width, 0, canvas.height);
+            this.vertices.push(new Vertex(pos, id, vertex.key, vertex.title, getColor(vertex.key)));
         }
 
-        data.edges.forEach(edata => {
-            let sId = this.nameToId[edata.sourcename];
-            let tId = this.nameToId[edata.targetname];
+        data.edges.forEach(edge => {
+            let sId: number;
+            let tId: number;
+            this.vertices.forEach(vertex => {
+                if (vertex.key == edge.source) sId = vertex.id;
+                else if (vertex.key == edge.target) tId = vertex.id;
+            });
 
-            this.edges.push(new Edge(this.vertices[sId], this.vertices[tId]));
+            let source = this.vertices[sId];
+            let target = this.vertices[tId];
 
-            degree[sId]++;
-            degree[tId]++;
+            this.edges.push(new Edge(source, target));
+
+            source.degree++;
+            target.degree++;
         });
     }
 }
@@ -232,7 +232,7 @@ class Renderer {
         context.lineWidth = 1;
 
         context.beginPath();
-        context.arc(pos.x, pos.y, degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, degreeToRadius(vertex.degree), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
     }
@@ -242,7 +242,7 @@ class Renderer {
         context.strokeStyle = color;
         context.fillStyle = color;
         context.beginPath();
-        context.arc(pos.x, pos.y, 3 + degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
+        context.arc(pos.x, pos.y, 3 + degreeToRadius(vertex.degree), 0, 2 * Math.PI);
         context.fill();
     }
 
@@ -250,7 +250,7 @@ class Renderer {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
         // Sigmoid curve to keep the text within a readable range
-        let size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(degree[vertex.id])));
+        let size = 14 + 8 / (1 + Math.exp(18 - 10 * Math.cbrt(vertex.degree)));
 
         context.fillStyle = TEXT_COLOR;
         context.font = `${size}px ${TEXT_FONT}`;
@@ -460,7 +460,7 @@ class PhysicsEngine {
 
         // Draw Hovered Vertex Info
         this.graph.vertices.forEach(vertex => {
-            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < degreeToRadius(degree[vertex.id])) {
+            if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < degreeToRadius(vertex.degree)) {
                 this.renderer.drawVertexInfo(vertex);
             }
         });
@@ -512,7 +512,7 @@ class App {
             mouseActive = true;
 
             this.springEmbedder.graph.vertices.forEach(vertex => {
-                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < degreeToRadius(degree[vertex.id])) {
+                if (vertex.pos.add(cameraPos).mul(zoomFactor).to(new Vector(ev.x, ev.y)).size() < degreeToRadius(vertex.degree)) {
                     selectedVertex = vertex;
                     currentMouseAction = MouseAction.MoveVertex;
                 }
