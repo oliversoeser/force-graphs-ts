@@ -1,102 +1,16 @@
-/* INTERFACES, TYPES, and ENUMS */
-
-// Dictionary Interface
 interface Dictionary<T> {
     [Key: string]: T;
 }
 
-// Graph Data representation
 type VertexData = { name: string; title: string; };
 type EdgeData = { sourcename: string; targetname: string; };
 type GraphData = { vertices: VertexData[]; edges: EdgeData[]; };
 
-// User Actions
 enum MouseAction {
     None,
     MoveCamera,
     MoveVertex
 }
-
-/* CONSTANTS */
-
-// Delta Time
-const DT = 1 / 20;
-
-// Force Coefficients
-const SPRING_FACTOR = 0.1;
-const ELECTRICAL_FACTOR = 2000;
-const VELOCITY_FACTOR = 10;
-const GRAVITY_FACTOR = 0;
-
-// Target Distance between Vertices
-const IDEAL_SPRING_LENGTH = 25;
-
-const GRAVITY_RADIUS = 5000;
-
-// Render Settings
-const VERTEX_STROKE = "#023047";
-const VERTEX_FILL = "#8ECAE6";
-const EDGE_STROKE = "grey";
-const SELECTION_FILL = "black";
-const BACKGROUND_COLOR = "rgb(245, 245, 245)";
-
-// School colours and prefixes
-/*
-Biology - #24F07C - [bich, bilg, bite, cebi, debi, eclg, evbi, gene, idbi, immu, mlbi, moge, pgbi, plsc, zlgy]
-Chemistry - #4B9B6D - [chem, chph, scbi]
-Engineering - #F0CF24 - [chee, cive, elee, maee, mece, pgee, scee]
-Geosciences - #706A49 - [easc, ecsc, envi, gegr, gesc, mete, pgge, prge]
-Informatics - #949F99 - [infr]
-Mathematics - #F03424 - [math]
-Physics - #2F24F0 - [pgph, phys]
-*/
-
-let biology = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"]
-
-let chemistry = ["chem", "chph", "scbi"]
-
-let engineering = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"]
-
-let geosciences = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"]
-
-let informatics = ["infr"]
-
-let mathematics = ["math"]
-
-let physics = ["pgph", "phys"]
-
-function getColor(name: string): string {
-    name = name.substring(0, 4)
-
-    if (biology.includes(name)) return "#24F07C";
-    else if (chemistry.includes(name)) return "#4B9B6D";
-    else if (engineering.includes(name)) return "#F0CF24";
-    else if (geosciences.includes(name)) return "#706A49";
-    else if (informatics.includes(name)) return "#949F99";
-    else if (mathematics.includes(name)) return "#F03424";
-    else if (physics.includes(name)) return "#2F24F0";
-    else VERTEX_FILL
-}
-
-
-/* GLOBAL VARIABLES */
-
-let canvas: HTMLCanvasElement;
-let context: CanvasRenderingContext2D;
-
-let cameraPos: Vector;
-let cameraZoom: number;
-let zoomFactor: number;
-
-let selectedVertex: Vertex;
-let mousePos: Vector;
-let mouseActive: boolean = false;
-
-function degreeToRadius(degree: number) {
-    return 10 * zoomFactor * (0.7*sigmoid(degree-5) + 0.5)
-}
-
-/* MATHEMATICS */
 
 class Vector {
     public readonly x: number;
@@ -121,14 +35,45 @@ class Vector {
     mul(factor: number): Vector { return new Vector(this.x * factor, this.y * factor); }
 }
 
+const DT = 1 / 20;
 
-/* MATHEMATICAL CONSTANTS */
+const SPRING_FACTOR = 0.1;
+const ELECTRICAL_FACTOR = 2000;
+const VELOCITY_FACTOR = 10;
+
+const IDEAL_SPRING_LENGTH = 25;
+
+const VERTEX_STROKE = "#023047";
+const VERTEX_FILL = "#8ECAE6";
+const EDGE_STROKE = "grey";
+const SELECTION_FILL = "black";
+const BACKGROUND_COLOR = "rgb(245, 245, 245)";
+
+const biology = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"];
+const chemistry = ["chem", "chph", "scbi"];
+const engineering = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"];
+const geosciences = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"];
+const informatics = ["infr"];
+const mathematics = ["math"];
+const physics = ["pgph", "phys"];
 
 const ZERO_VECTOR = new Vector(0, 0);
 const SECOND = 1000;
 
+let canvas: HTMLCanvasElement;
+let context: CanvasRenderingContext2D;
 
-/* HELPER FUNCTIONS */
+let cameraPos: Vector;
+let cameraZoom: number;
+let zoomFactor: number;
+
+let selectedVertex: Vertex;
+let mousePos: Vector;
+let mouseActive: boolean = false;
+
+let degree: number[];
+
+let currentMouseAction: MouseAction;
 
 function sigmoid(x: number): number {
     return 1 / (1 + Math.exp(-x));
@@ -151,8 +96,21 @@ function splitText(text: string, maxWidth: number): string[] {
     return lines;
 }
 
+function degreeToRadius(degree: number) {
+    return 10 * zoomFactor * (0.7*sigmoid(degree-5) + 0.5)
+}
 
-/* GRAPHS */
+function getColor(name: string): string {
+    name = name.substring(0, 4)
+    if (biology.includes(name)) return "#24F07C";
+    else if (chemistry.includes(name)) return "#4B9B6D";
+    else if (engineering.includes(name)) return "#F0CF24";
+    else if (geosciences.includes(name)) return "#706A49";
+    else if (informatics.includes(name)) return "#949F99";
+    else if (mathematics.includes(name)) return "#F03424";
+    else if (physics.includes(name)) return "#2F24F0";
+    else VERTEX_FILL
+}
 
 class Vertex {
     public pos: Vector; // Position
@@ -191,9 +149,6 @@ class Edge {
     }
 }
 
-let degree: number[];
-let adjacency: number[][];
-
 class Graph {
     public vertices: Vertex[];
     public edges: Edge[];
@@ -207,18 +162,12 @@ class Graph {
         this.nameToId = {};
 
         degree = new Array();
-        adjacency = new Array();
 
         for (let id = 0; id < data.vertices.length; id++) {
             let vdata = data.vertices[id];
             this.nameToId[vdata.name] = id;
             this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title, getColor(vdata.name)));
             degree.push(0);
-            adjacency.push([]);
-
-            for (let j = 0; j < data.vertices.length; j++) {
-                adjacency[id][j] = 0;
-            }
         }
 
         data.edges.forEach(edata => {
@@ -229,15 +178,9 @@ class Graph {
 
             degree[sId]++;
             degree[tId]++;
-
-            adjacency[sId][tId] = 1;
-            adjacency[tId][sId] = 1;
         });
     }
 }
-
-
-/* VISUALISATION */
 
 class Renderer {
     constructor() {
@@ -252,16 +195,13 @@ class Renderer {
     drawVertex(vertex: Vertex) {
         let pos = vertex.pos.add(cameraPos).mul(zoomFactor);
 
-        let fill = context.fillStyle;
-
         context.fillStyle = vertex.color;
+        context.strokeStyle = VERTEX_STROKE
 
         context.beginPath();
         context.arc(pos.x, pos.y, degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
-
-        context.fillStyle = fill;
     }
 
     drawRelatedVertex(vertex: Vertex, color: string) {
@@ -274,9 +214,6 @@ class Renderer {
         context.arc(pos.x, pos.y, 3 + degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
-
-        context.strokeStyle = stroke;
-        context.fillStyle = fill;
     }
 
     drawVertexInfo(vertex: Vertex) {
@@ -297,7 +234,6 @@ class Renderer {
 
         context.fillStyle = "black";
         context.fillText(vertex.title, pos.x - width / 2, pos.y);
-        context.fillStyle = VERTEX_STROKE;
     }
 
     drawEdge(edge: Edge) {
@@ -313,7 +249,6 @@ class Renderer {
             context.lineTo(end.x, end.y);
             context.stroke();
             context.lineWidth = 1;
-            context.strokeStyle = EDGE_STROKE;
 
             let line = end.to(start);
             let len = line.size();
@@ -326,7 +261,6 @@ class Renderer {
             let c = midpoint.add(u_dir.mul(-8));
 
             context.lineWidth = 5;
-            context.strokeStyle = "green";
             context.beginPath()
             context.moveTo(a.x, a.y);
             context.lineTo(b.x, b.y);
@@ -340,7 +274,6 @@ class Renderer {
             context.lineTo(c.x, c.y);
             context.stroke();
             context.lineWidth = 1;
-            context.strokeStyle = EDGE_STROKE;
 
             this.drawRelatedVertex(edge.target, "green");
             return
@@ -352,7 +285,6 @@ class Renderer {
             context.lineTo(end.x, end.y);
             context.stroke();
             context.lineWidth = 1;
-            context.strokeStyle = EDGE_STROKE;
 
             let line = start.to(end);
             let len = line.size();
@@ -365,7 +297,6 @@ class Renderer {
             let c = midpoint.add(u_dir.mul(8));
 
             context.lineWidth = 5;
-            context.strokeStyle = "red";
             context.beginPath()
             context.moveTo(a.x, a.y);
             context.lineTo(b.x, b.y);
@@ -379,11 +310,13 @@ class Renderer {
             context.lineTo(c.x, c.y);
             context.stroke();
             context.lineWidth = 1;
-            context.strokeStyle = EDGE_STROKE;
 
             this.drawRelatedVertex(edge.source, "red");
             return
         }
+
+        context.strokeStyle = EDGE_STROKE;
+
         context.beginPath()
         context.moveTo(start.x, start.y);
         context.lineTo(end.x, end.y);
@@ -439,7 +372,6 @@ class Renderer {
         for (let i = 0; i < suc.length; i++) {
             context.fillText(suc[i], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i + 1 + pre.length + 3))
         }
-
     }
 
     clear() {
@@ -451,10 +383,7 @@ class Renderer {
     }
 }
 
-
-/* FORCE DIRECTED GRAPH DRAWING */
-
-class SpringEmbedder {
+class PhysicsEngine {
     private readonly renderer: Renderer;
     public readonly graph: Graph;
 
@@ -470,37 +399,27 @@ class SpringEmbedder {
             this.renderer.drawEdge(edge);
         });
 
-        for (let i = 0; i < 0; i++) {
-            this.stepEades();
-        }
-
         setInterval(this.step.bind(this), DT * SECOND);
     }
 
     step() {
-        this.stepEades();
+        this.stepPhysics();
         this.stepDraw();
     }
 
-    // Eades' SPRING Algorithm
-    stepEades() {
+    stepPhysics() {
         for (let id = 0; id < this.graph.vertices.length; id++) {
             let vertex = this.graph.vertices[id];
 
-            // Gravity to Origin
-            vertex.applyForce(this.gravityOrigin(vertex));
-
             // Repulsion
             this.graph.vertices.forEach(other => {
-                if (!adjacency[vertex.id][other.id]) {
-                    vertex.applyForce(this.electricalForceEades(vertex, other));
-                }
+                vertex.applyForce(this.electricalForce(vertex, other));
             });
         }
 
         // Spring forces
         this.graph.edges.forEach(edge => {
-            let force = this.springForceEades(edge);
+            let force = this.springForce(edge);
             edge.source.applyForce(force);
             edge.target.applyForce(force.mul(-1));
         });
@@ -522,7 +441,6 @@ class SpringEmbedder {
         this.renderer.clear();
 
         // Draw Edges
-        context.strokeStyle = EDGE_STROKE;
         this.graph.edges.forEach(edge => {
             this.renderer.drawEdge(edge);
         });
@@ -532,16 +450,11 @@ class SpringEmbedder {
         }
 
         // Draw Vertices
-        context.lineWidth = 1;
-        context.strokeStyle = VERTEX_STROKE;
-        context.fillStyle = VERTEX_FILL;
         this.graph.vertices.forEach(vertex => {
             this.renderer.drawVertex(vertex);
         });
 
         // Draw Hovered Vertex Info
-        context.fillStyle = SELECTION_FILL;
-
         this.graph.vertices.forEach(vertex => {
             if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < degreeToRadius(degree[vertex.id])) {
                 this.renderer.drawVertexInfo(vertex);
@@ -552,27 +465,21 @@ class SpringEmbedder {
         this.renderer.drawSidebar(this.graph.edges);
     }
 
-    // Keep Graph centred
-    gravityOrigin(vertex: Vertex): Vector {
-        let r_vec = vertex.pos.to(new Vector(canvas.width / 2, canvas.height / 2));
-        let d = Math.max(r_vec.size(), GRAVITY_RADIUS);
-        let force = r_vec.mul(1 / d).mul(GRAVITY_FACTOR / d);
-        return force
-    }
-
     // Keep adjacent Vertices together
-    springForceEades(edge: Edge): Vector {
+    // Hooke's law: F = kx
+    springForce(edge: Edge): Vector {
         let r_vec = edge.source.pos.to(edge.target.pos);
         let d = r_vec.size();
         let force = r_vec.mul(1 / d).mul(SPRING_FACTOR * (d - IDEAL_SPRING_LENGTH));
         return force
     }
 
-    // Keep unconnected Vertices apart
-    electricalForceEades(v1: Vertex, v2: Vertex): Vector {
+    // Keep (unconnected) Vertices apart
+    // Coulomb's law: |F| = k * (|q1| |q2|) / (r^2)
+    electricalForce(v1: Vertex, v2: Vertex): Vector {
         let r_vec = v2.pos.to(v1.pos);
-        let d = Math.max(r_vec.size(), 15);
-        let force = r_vec.mul(1 / d).mul(ELECTRICAL_FACTOR / (d*d));
+        let d = Math.max(r_vec.size(), 17);
+        let force = r_vec.mul(1/d).mul(ELECTRICAL_FACTOR / (d*d));
         return force;
     }
 
@@ -584,13 +491,11 @@ class SpringEmbedder {
     }
 }
 
-let currentMouseAction: MouseAction;
-
 class App {
-    private readonly springEmbedder: SpringEmbedder;
+    private readonly springEmbedder: PhysicsEngine;
 
     constructor(data: GraphData) {
-        this.springEmbedder = new SpringEmbedder(data)
+        this.springEmbedder = new PhysicsEngine(data)
 
         currentMouseAction = MouseAction.None;
         mousePos = ZERO_VECTOR;
@@ -636,9 +541,6 @@ class App {
         return Math.max(Math.exp(zoom / 5000), 0.2);
     }
 }
-
-
-/* APP START */
 
 window.onload = () => {
     fetch('../data/graph.json')

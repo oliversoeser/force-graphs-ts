@@ -4,55 +4,6 @@ var MouseAction;
     MouseAction[MouseAction["MoveCamera"] = 1] = "MoveCamera";
     MouseAction[MouseAction["MoveVertex"] = 2] = "MoveVertex";
 })(MouseAction || (MouseAction = {}));
-var DT = 1 / 20;
-var SPRING_FACTOR = 0.1;
-var ELECTRICAL_FACTOR = 2000;
-var VELOCITY_FACTOR = 10;
-var GRAVITY_FACTOR = 0;
-var IDEAL_SPRING_LENGTH = 25;
-var GRAVITY_RADIUS = 5000;
-var VERTEX_STROKE = "#023047";
-var VERTEX_FILL = "#8ECAE6";
-var EDGE_STROKE = "grey";
-var SELECTION_FILL = "black";
-var BACKGROUND_COLOR = "rgb(245, 245, 245)";
-var biology = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"];
-var chemistry = ["chem", "chph", "scbi"];
-var engineering = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"];
-var geosciences = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"];
-var informatics = ["infr"];
-var mathematics = ["math"];
-var physics = ["pgph", "phys"];
-function getColor(name) {
-    name = name.substring(0, 4);
-    if (biology.includes(name))
-        return "#24F07C";
-    else if (chemistry.includes(name))
-        return "#4B9B6D";
-    else if (engineering.includes(name))
-        return "#F0CF24";
-    else if (geosciences.includes(name))
-        return "#706A49";
-    else if (informatics.includes(name))
-        return "#949F99";
-    else if (mathematics.includes(name))
-        return "#F03424";
-    else if (physics.includes(name))
-        return "#2F24F0";
-    else
-        VERTEX_FILL;
-}
-var canvas;
-var context;
-var cameraPos;
-var cameraZoom;
-var zoomFactor;
-var selectedVertex;
-var mousePos;
-var mouseActive = false;
-function degreeToRadius(degree) {
-    return 10 * zoomFactor * (0.7 * sigmoid(degree - 5) + 0.5);
-}
 var Vector = (function () {
     function Vector(x, y) {
         this.x = x;
@@ -65,8 +16,35 @@ var Vector = (function () {
     Vector.prototype.mul = function (factor) { return new Vector(this.x * factor, this.y * factor); };
     return Vector;
 }());
+var DT = 1 / 20;
+var SPRING_FACTOR = 0.1;
+var ELECTRICAL_FACTOR = 2000;
+var VELOCITY_FACTOR = 10;
+var IDEAL_SPRING_LENGTH = 25;
+var VERTEX_STROKE = "#023047";
+var VERTEX_FILL = "#8ECAE6";
+var EDGE_STROKE = "grey";
+var SELECTION_FILL = "black";
+var BACKGROUND_COLOR = "rgb(245, 245, 245)";
+var biology = ["bich", "bilg", "bite", "cebi", "debi", "eclg", "evbi", "gene", "idbi", "immu", "mlbi", "moge", "pgbi", "plsc", "zlgy"];
+var chemistry = ["chem", "chph", "scbi"];
+var engineering = ["chee", "cive", "elee", "maee", "mece", "pgee", "scee"];
+var geosciences = ["easc", "ecsc", "envi", "gegr", "gesc", "mete", "pgge", "prge"];
+var informatics = ["infr"];
+var mathematics = ["math"];
+var physics = ["pgph", "phys"];
 var ZERO_VECTOR = new Vector(0, 0);
 var SECOND = 1000;
+var canvas;
+var context;
+var cameraPos;
+var cameraZoom;
+var zoomFactor;
+var selectedVertex;
+var mousePos;
+var mouseActive = false;
+var degree;
+var currentMouseAction;
 function sigmoid(x) {
     return 1 / (1 + Math.exp(-x));
 }
@@ -85,6 +63,28 @@ function splitText(text, maxWidth) {
     }
     lines.push(substring);
     return lines;
+}
+function degreeToRadius(degree) {
+    return 10 * zoomFactor * (0.7 * sigmoid(degree - 5) + 0.5);
+}
+function getColor(name) {
+    name = name.substring(0, 4);
+    if (biology.includes(name))
+        return "#24F07C";
+    else if (chemistry.includes(name))
+        return "#4B9B6D";
+    else if (engineering.includes(name))
+        return "#F0CF24";
+    else if (geosciences.includes(name))
+        return "#706A49";
+    else if (informatics.includes(name))
+        return "#949F99";
+    else if (mathematics.includes(name))
+        return "#F03424";
+    else if (physics.includes(name))
+        return "#2F24F0";
+    else
+        VERTEX_FILL;
 }
 var Vertex = (function () {
     function Vertex(pos, id, name, title, color) {
@@ -109,8 +109,6 @@ var Edge = (function () {
     }
     return Edge;
 }());
-var degree;
-var adjacency;
 var Graph = (function () {
     function Graph(data) {
         var _this = this;
@@ -118,16 +116,11 @@ var Graph = (function () {
         this.edges = new Array();
         this.nameToId = {};
         degree = new Array();
-        adjacency = new Array();
         for (var id = 0; id < data.vertices.length; id++) {
             var vdata = data.vertices[id];
             this.nameToId[vdata.name] = id;
             this.vertices.push(new Vertex(new Vector(Math.random() * canvas.width, Math.random() * canvas.height), id, vdata.name, vdata.title, getColor(vdata.name)));
             degree.push(0);
-            adjacency.push([]);
-            for (var j = 0; j < data.vertices.length; j++) {
-                adjacency[id][j] = 0;
-            }
         }
         data.edges.forEach(function (edata) {
             var sId = _this.nameToId[edata.sourcename];
@@ -135,8 +128,6 @@ var Graph = (function () {
             _this.edges.push(new Edge(_this.vertices[sId], _this.vertices[tId]));
             degree[sId]++;
             degree[tId]++;
-            adjacency[sId][tId] = 1;
-            adjacency[tId][sId] = 1;
         });
     }
     return Graph;
@@ -151,13 +142,12 @@ var Renderer = (function () {
     };
     Renderer.prototype.drawVertex = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
-        var fill = context.fillStyle;
         context.fillStyle = vertex.color;
+        context.strokeStyle = VERTEX_STROKE;
         context.beginPath();
         context.arc(pos.x, pos.y, degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
-        context.fillStyle = fill;
     };
     Renderer.prototype.drawRelatedVertex = function (vertex, color) {
         var stroke = context.strokeStyle;
@@ -169,8 +159,6 @@ var Renderer = (function () {
         context.arc(pos.x, pos.y, 3 + degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
         context.stroke();
-        context.strokeStyle = stroke;
-        context.fillStyle = fill;
     };
     Renderer.prototype.drawVertexInfo = function (vertex) {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
@@ -182,7 +170,6 @@ var Renderer = (function () {
         context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5);
         context.fillStyle = "black";
         context.fillText(vertex.title, pos.x - width / 2, pos.y);
-        context.fillStyle = VERTEX_STROKE;
     };
     Renderer.prototype.drawEdge = function (edge) {
         var start = edge.source.pos.add(cameraPos).mul(zoomFactor);
@@ -196,7 +183,6 @@ var Renderer = (function () {
             context.lineTo(end.x, end.y);
             context.stroke();
             context.lineWidth = 1;
-            context.strokeStyle = EDGE_STROKE;
             var line = end.to(start);
             var len = line.size();
             var u_dir = line.mul(1 / len);
@@ -206,7 +192,6 @@ var Renderer = (function () {
             var b = midpoint.sub(normal_dir.mul(7));
             var c = midpoint.add(u_dir.mul(-8));
             context.lineWidth = 5;
-            context.strokeStyle = "green";
             context.beginPath();
             context.moveTo(a.x, a.y);
             context.lineTo(b.x, b.y);
@@ -220,7 +205,6 @@ var Renderer = (function () {
             context.lineTo(c.x, c.y);
             context.stroke();
             context.lineWidth = 1;
-            context.strokeStyle = EDGE_STROKE;
             this.drawRelatedVertex(edge.target, "green");
             return;
         }
@@ -232,7 +216,6 @@ var Renderer = (function () {
             context.lineTo(end.x, end.y);
             context.stroke();
             context.lineWidth = 1;
-            context.strokeStyle = EDGE_STROKE;
             var line = start.to(end);
             var len = line.size();
             var u_dir = line.mul(1 / len);
@@ -242,7 +225,6 @@ var Renderer = (function () {
             var b = midpoint.sub(normal_dir.mul(7));
             var c = midpoint.add(u_dir.mul(8));
             context.lineWidth = 5;
-            context.strokeStyle = "red";
             context.beginPath();
             context.moveTo(a.x, a.y);
             context.lineTo(b.x, b.y);
@@ -256,10 +238,10 @@ var Renderer = (function () {
             context.lineTo(c.x, c.y);
             context.stroke();
             context.lineWidth = 1;
-            context.strokeStyle = EDGE_STROKE;
             this.drawRelatedVertex(edge.source, "red");
             return;
         }
+        context.strokeStyle = EDGE_STROKE;
         context.beginPath();
         context.moveTo(start.x, start.y);
         context.lineTo(end.x, end.y);
@@ -311,8 +293,8 @@ var Renderer = (function () {
     };
     return Renderer;
 }());
-var SpringEmbedder = (function () {
-    function SpringEmbedder(data) {
+var PhysicsEngine = (function () {
+    function PhysicsEngine(data) {
         var _this = this;
         this.renderer = new Renderer();
         this.graph = new Graph(data);
@@ -322,24 +304,18 @@ var SpringEmbedder = (function () {
         this.graph.edges.forEach(function (edge) {
             _this.renderer.drawEdge(edge);
         });
-        for (var i = 0; i < 0; i++) {
-            this.stepEades();
-        }
         setInterval(this.step.bind(this), DT * SECOND);
     }
-    SpringEmbedder.prototype.step = function () {
-        this.stepEades();
+    PhysicsEngine.prototype.step = function () {
+        this.stepPhysics();
         this.stepDraw();
     };
-    SpringEmbedder.prototype.stepEades = function () {
+    PhysicsEngine.prototype.stepPhysics = function () {
         var _this = this;
         var _loop_1 = function (id) {
             var vertex = this_1.graph.vertices[id];
-            vertex.applyForce(this_1.gravityOrigin(vertex));
             this_1.graph.vertices.forEach(function (other) {
-                if (!adjacency[vertex.id][other.id]) {
-                    vertex.applyForce(_this.electricalForceEades(vertex, other));
-                }
+                vertex.applyForce(_this.electricalForce(vertex, other));
             });
         };
         var this_1 = this;
@@ -347,7 +323,7 @@ var SpringEmbedder = (function () {
             _loop_1(id);
         }
         this.graph.edges.forEach(function (edge) {
-            var force = _this.springForceEades(edge);
+            var force = _this.springForce(edge);
             edge.source.applyForce(force);
             edge.target.applyForce(force.mul(-1));
         });
@@ -358,24 +334,19 @@ var SpringEmbedder = (function () {
             vertex.step();
         });
     };
-    SpringEmbedder.prototype.stepDraw = function () {
+    PhysicsEngine.prototype.stepDraw = function () {
         var _this = this;
         this.renderer.fitCanvasToWindow();
         this.renderer.clear();
-        context.strokeStyle = EDGE_STROKE;
         this.graph.edges.forEach(function (edge) {
             _this.renderer.drawEdge(edge);
         });
         if (selectedVertex != undefined) {
             this.renderer.drawRelatedVertex(selectedVertex, "orange");
         }
-        context.lineWidth = 1;
-        context.strokeStyle = VERTEX_STROKE;
-        context.fillStyle = VERTEX_FILL;
         this.graph.vertices.forEach(function (vertex) {
             _this.renderer.drawVertex(vertex);
         });
-        context.fillStyle = SELECTION_FILL;
         this.graph.vertices.forEach(function (vertex) {
             if (vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos).size() < degreeToRadius(degree[vertex.id])) {
                 _this.renderer.drawVertexInfo(vertex);
@@ -383,36 +354,29 @@ var SpringEmbedder = (function () {
         });
         this.renderer.drawSidebar(this.graph.edges);
     };
-    SpringEmbedder.prototype.gravityOrigin = function (vertex) {
-        var r_vec = vertex.pos.to(new Vector(canvas.width / 2, canvas.height / 2));
-        var d = Math.max(r_vec.size(), GRAVITY_RADIUS);
-        var force = r_vec.mul(1 / d).mul(GRAVITY_FACTOR / d);
-        return force;
-    };
-    SpringEmbedder.prototype.springForceEades = function (edge) {
+    PhysicsEngine.prototype.springForce = function (edge) {
         var r_vec = edge.source.pos.to(edge.target.pos);
         var d = r_vec.size();
         var force = r_vec.mul(1 / d).mul(SPRING_FACTOR * (d - IDEAL_SPRING_LENGTH));
         return force;
     };
-    SpringEmbedder.prototype.electricalForceEades = function (v1, v2) {
+    PhysicsEngine.prototype.electricalForce = function (v1, v2) {
         var r_vec = v2.pos.to(v1.pos);
-        var d = Math.max(r_vec.size(), 15);
+        var d = Math.max(r_vec.size(), 17);
         var force = r_vec.mul(1 / d).mul(ELECTRICAL_FACTOR / (d * d));
         return force;
     };
-    SpringEmbedder.prototype.mousePullForce = function (vertex) {
+    PhysicsEngine.prototype.mousePullForce = function (vertex) {
         var r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
         var force = r_vec.mul(1 / 7);
         return force;
     };
-    return SpringEmbedder;
+    return PhysicsEngine;
 }());
-var currentMouseAction;
 var App = (function () {
     function App(data) {
         var _this = this;
-        this.springEmbedder = new SpringEmbedder(data);
+        this.springEmbedder = new PhysicsEngine(data);
         currentMouseAction = MouseAction.None;
         mousePos = ZERO_VECTOR;
         selectedVertex = undefined;
