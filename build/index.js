@@ -18,16 +18,17 @@ var Vector = (function () {
 }());
 var DT = 1 / 20;
 var SPRING_FACTOR = 1;
+var MOUSE_SPRING_FACTOR = 10;
 var ELECTRICAL_FACTOR = 20000;
 var IDEAL_SPRING_LENGTH = 25;
 var GRAPH_DATA_PATH = "../data/graph.json";
-var SUCCESSOR_EDGE = "green";
-var PREDECESSOR_EDGE = "red";
-var HIGHLIGHT_COLOR = "orange";
+var SUCCESSOR_EDGE = "#3a86ff";
+var PREDECESSOR_EDGE = "#ff006e";
+var HIGHLIGHT_COLOR = "#8338ec";
 var TEXT_COLOR = "black";
 var TEXT_FONT = "Arial";
 var SIZE_H1 = 30;
-var SIZE_H3 = 26;
+var SIZE_H2 = 26;
 var SIZE_H4 = 18;
 var SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
 var INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
@@ -207,10 +208,9 @@ var Renderer = (function () {
             context.lineTo(end.x, end.y);
             context.stroke();
             var line = end.to(start);
-            var len = line.size();
-            var u_dir = line.mul(1 / len);
+            var u_dir = line.mul(1 / line.size());
             var normal_dir = new Vector(-u_dir.y, u_dir.x);
-            var midpoint = end.add(u_dir.mul(len / 2));
+            var midpoint = end.add(line.mul(0.5));
             var a = midpoint.add(normal_dir.mul(7));
             var b = midpoint.sub(normal_dir.mul(7));
             var c = midpoint.add(u_dir.mul(-8));
@@ -272,7 +272,7 @@ var Renderer = (function () {
                 pre = pre.concat(splitText(edge.source.title, width - 20));
             }
         }
-        context.font = "".concat(SIZE_H3, "px ").concat(TEXT_FONT, "}");
+        context.font = "".concat(SIZE_H2, "px ").concat(TEXT_FONT);
         context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5);
         context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3));
         context.font = "".concat(SIZE_H4, "px ").concat(TEXT_FONT);
@@ -366,7 +366,8 @@ var PhysicsEngine = (function () {
     };
     PhysicsEngine.prototype.mousePullForce = function (vertex) {
         var r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
-        var force = r_vec;
+        var d = r_vec.size();
+        var force = r_vec.mul(1 / d).mul(MOUSE_SPRING_FACTOR * d);
         return force;
     };
     return PhysicsEngine;
@@ -387,6 +388,9 @@ var App = (function () {
                     currentMouseAction = MouseAction.MoveVertex;
                 }
             });
+        });
+        canvas.addEventListener("dblclick", function (ev) {
+            selectedVertex = undefined;
         });
         canvas.addEventListener("mousemove", function (ev) {
             var newMousePos = new Vector(ev.x, ev.y);

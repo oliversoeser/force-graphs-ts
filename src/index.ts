@@ -38,21 +38,22 @@ class Vector {
 const DT = 1 / 20;
 
 const SPRING_FACTOR = 1;
+const MOUSE_SPRING_FACTOR = 10;
 const ELECTRICAL_FACTOR = 20000;
 
 const IDEAL_SPRING_LENGTH = 25;
 
 const GRAPH_DATA_PATH = "../data/graph.json";
 
-const SUCCESSOR_EDGE = "green";
-const PREDECESSOR_EDGE = "red";
-const HIGHLIGHT_COLOR = "orange"
+const SUCCESSOR_EDGE = "#3a86ff";
+const PREDECESSOR_EDGE = "#ff006e";
+const HIGHLIGHT_COLOR = "#8338ec"
 
 const TEXT_COLOR = "black";
 const TEXT_FONT = "Arial";
 
 const SIZE_H1 = 30;
-const SIZE_H3 = 26;
+const SIZE_H2 = 26;
 const SIZE_H4 = 18;
 
 const SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
@@ -280,11 +281,10 @@ class Renderer {
             context.stroke();
 
             let line = end.to(start);
-            let len = line.size();
-            let u_dir = line.mul(1 / len);
+            let u_dir = line.mul(1 / line.size());
             let normal_dir = new Vector(-u_dir.y, u_dir.x);
 
-            let midpoint = end.add(u_dir.mul(len / 2))
+            let midpoint = end.add(line.mul(0.5))
             let a = midpoint.add(normal_dir.mul(7));
             let b = midpoint.sub(normal_dir.mul(7));
             let c = midpoint.add(u_dir.mul(-8));
@@ -362,7 +362,7 @@ class Renderer {
             }
         }
 
-        context.font = `${SIZE_H3}px ${TEXT_FONT}}`;
+        context.font = `${SIZE_H2}px ${TEXT_FONT}`;
 
         context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5)
         context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3))
@@ -487,10 +487,11 @@ class PhysicsEngine {
         return force;
     }
 
-    // Mouse pull
+    // Mouse pull, also a spring force following Hooke's law
     mousePullForce(vertex: Vertex): Vector {
         let r_vec = vertex.pos.add(cameraPos).mul(zoomFactor).to(mousePos);
-        let force = r_vec;
+        let d = r_vec.size();
+        let force = r_vec.mul(1 / d).mul(MOUSE_SPRING_FACTOR * d);
         return force;
     }
 }
@@ -516,6 +517,10 @@ class App {
                     currentMouseAction = MouseAction.MoveVertex;
                 }
             });
+        });
+
+        canvas.addEventListener("dblclick", (ev: MouseEvent) => {
+            selectedVertex = undefined;
         });
 
         canvas.addEventListener("mousemove", (ev: MouseEvent) => {
