@@ -134,6 +134,15 @@ function getColor(name: string): string {
     else VERTEX_FILL;
 }
 
+function fillTriangle(a: Vector, b: Vector, c: Vector) {
+    context.beginPath()
+    context.moveTo(a.x, a.y);
+    context.lineTo(b.x, b.y);
+    context.lineTo(c.x, c.y);
+    context.lineTo(a.x, a.y);
+    context.fill();
+}
+
 class Vertex {
     public pos: Vector; // Position
     private force: Vector; // Total force applied in the current step
@@ -219,6 +228,7 @@ class Renderer {
 
         context.fillStyle = vertex.color;
         context.strokeStyle = VERTEX_STROKE
+        context.lineWidth = 1;
 
         context.beginPath();
         context.arc(pos.x, pos.y, degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
@@ -233,7 +243,6 @@ class Renderer {
         context.beginPath();
         context.arc(pos.x, pos.y, 3 + degreeToRadius(degree[vertex.id]), 0, 2 * Math.PI);
         context.fill();
-        context.stroke();
     }
 
     drawVertexInfo(vertex: Vertex) {
@@ -264,11 +273,11 @@ class Renderer {
         else if (edge.source.id == selectedVertex.id) {
             context.lineWidth = 3;
             context.strokeStyle = SUCCESSOR_EDGE;
+            context.fillStyle = SUCCESSOR_EDGE;
             context.beginPath()
             context.moveTo(start.x, start.y);
             context.lineTo(end.x, end.y);
             context.stroke();
-            context.lineWidth = 1;
 
             let line = end.to(start);
             let len = line.size();
@@ -280,31 +289,18 @@ class Renderer {
             let b = midpoint.sub(normal_dir.mul(7));
             let c = midpoint.add(u_dir.mul(-8));
 
-            context.lineWidth = 5;
-            context.beginPath()
-            context.moveTo(a.x, a.y);
-            context.lineTo(b.x, b.y);
-            context.stroke();
-            context.beginPath()
-            context.moveTo(c.x, c.y);
-            context.lineTo(b.x, b.y);
-            context.stroke();
-            context.beginPath()
-            context.moveTo(a.x, a.y);
-            context.lineTo(c.x, c.y);
-            context.stroke();
-            context.lineWidth = 1;
+            fillTriangle(a, b, c);
 
             this.drawRelatedVertex(edge.target, SUCCESSOR_EDGE);
             return
         } else if (edge.target.id == selectedVertex.id) {
             context.lineWidth = 3;
             context.strokeStyle = PREDECESSOR_EDGE;
+            context.fillStyle = PREDECESSOR_EDGE;
             context.beginPath()
             context.moveTo(start.x, start.y);
             context.lineTo(end.x, end.y);
             context.stroke();
-            context.lineWidth = 1;
 
             let line = start.to(end);
             let len = line.size();
@@ -316,25 +312,13 @@ class Renderer {
             let b = midpoint.sub(normal_dir.mul(7));
             let c = midpoint.add(u_dir.mul(8));
 
-            context.lineWidth = 5;
-            context.beginPath()
-            context.moveTo(a.x, a.y);
-            context.lineTo(b.x, b.y);
-            context.stroke();
-            context.beginPath()
-            context.moveTo(c.x, c.y);
-            context.lineTo(b.x, b.y);
-            context.stroke();
-            context.beginPath()
-            context.moveTo(a.x, a.y);
-            context.lineTo(c.x, c.y);
-            context.stroke();
-            context.lineWidth = 1;
+            fillTriangle(a, b, c);
 
             this.drawRelatedVertex(edge.source, PREDECESSOR_EDGE);
             return
         }
 
+        context.lineWidth = 1;
         context.strokeStyle = EDGE_STROKE;
 
         context.beginPath()
