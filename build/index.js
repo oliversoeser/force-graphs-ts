@@ -18,10 +18,11 @@ var Vector = (function () {
     return Vector;
 }());
 var DT = 1 / 30;
-var SPRING_FACTOR = 1;
+var SPRING_FACTOR = 2;
 var MOUSE_SPRING_FACTOR = 10;
 var ELECTRICAL_FACTOR = 20000;
 var MAX_VELOCITY = 500;
+var MAX_FRICTION = 25;
 var IDEAL_SPRING_LENGTH = 25;
 var GRAPH_DATA_PATH = "../data/graph.json";
 var SUCCESSOR_EDGE = "#3a86ff";
@@ -31,8 +32,11 @@ var TEXT_COLOR = "black";
 var TEXT_FONT = "Arial";
 var SIZE_H1 = 30;
 var SIZE_H2 = 26;
+var SIZE_H3 = 22;
 var SIZE_H4 = 18;
 var ARROW_SIZE = 7;
+var TEXT_VMARGIN = 10;
+var TEXT_HMARGIN = 10;
 var SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
 var INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
 var VERTEX_STROKE = "#023047";
@@ -66,29 +70,34 @@ var currentMouseAction = MouseAction.None;
 var canvas;
 var context;
 function sigmoid(x) {
-    return 1 / (1 + Math.exp(-x));
+    return (1 / (1 + Math.exp(-x)));
 }
 function logistic(supremum, growthRate, midpoint, x) {
-    return supremum * sigmoid(growthRate * (x - midpoint));
+    return (supremum * sigmoid(growthRate * (x - midpoint)));
 }
-function splitText(text, maxWidth) {
+function splitText(text, width) {
     var words = text.split(" ");
     var lines = [];
-    var substring = words[0];
-    for (var i = 1; i < words.length; i++) {
-        if (context.measureText(substring + " " + words[i]).width >= maxWidth) {
-            lines.push(substring);
-            substring = words[i];
+    var line = "";
+    words.forEach(function (word) {
+        if (context.measureText(line + word).width > width) {
+            lines.push(line);
+            line = "";
         }
-        else {
-            substring += " " + words[i];
-        }
-    }
-    lines.push(substring);
+        line += word + " ";
+    });
+    lines.push(line);
     return lines;
 }
 function degreeToRadius(degree) {
     return zoomFactor * (logistic(7, 1, 5, degree) + 5);
+}
+function font(size, family) {
+    return "".concat(size, "px ").concat(family);
+}
+function textHeight(text) {
+    var metrics = context.measureText(text);
+    return metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
 }
 function getColor(key) {
     key = key.substring(0, 4);
@@ -143,11 +152,13 @@ var Vertex = (function () {
     Vertex.prototype.applyForce = function (force) { this.force = this.force.add(force); };
     Vertex.prototype.step = function () {
         var F = this.force.size();
+        var friction = this.force.mul(1 / F).mul(-1).mul(Math.min(MAX_FRICTION, F));
+        this.applyForce(friction);
+        F = this.force.size();
         if (F > MAX_VELOCITY)
             this.force = this.force.mul(MAX_VELOCITY / F);
         this.pos = this.pos.add(this.force.mul(DT));
         this.force = ZERO_VECTOR;
-        console.log(this.pos);
     };
     return Vertex;
 }());
@@ -211,7 +222,7 @@ var Renderer = (function () {
         var pos = vertex.pos.add(cameraPos).mul(zoomFactor);
         var size = 14 + logistic(8, 1, 6, vertex.degree);
         context.fillStyle = TEXT_COLOR;
-        context.font = "".concat(size, "px ").concat(TEXT_FONT);
+        context.font = font(size, TEXT_FONT);
         var width = context.measureText(vertex.title).width;
         context.fillStyle = INFO_BG_STYLE;
         context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5);
@@ -223,80 +234,71 @@ var Renderer = (function () {
         var end = edge.target.pos.add(cameraPos).mul(zoomFactor);
         context.lineWidth = 1;
         context.strokeStyle = EDGE_STROKE;
-        context.beginPath();
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
-        context.stroke();
+        drawLine(start, end);
         if (selectedVertex != undefined) {
             context.lineWidth = 3;
             var vertex = void 0;
             Vertex;
-            var p = void 0;
-            var n = void 0;
-            var v = void 0;
             if (edge.source.id == selectedVertex.id) {
                 context.strokeStyle = SUCCESSOR_EDGE;
                 context.fillStyle = SUCCESSOR_EDGE;
-                var line = start.to(end);
-                var midpoint = start.add(line.mul(1 / 2));
-                v = line.mul(ARROW_SIZE / line.size());
-                n = v.normal();
-                p = midpoint.sub(v);
                 vertex = edge.target;
             }
             else if (edge.target.id == selectedVertex.id) {
                 context.strokeStyle = PREDECESSOR_EDGE;
                 context.fillStyle = PREDECESSOR_EDGE;
-                var line = start.to(end);
-                var midpoint = start.add(line.mul(1 / 2));
-                v = line.mul(ARROW_SIZE / line.size());
-                n = v.normal();
-                p = midpoint.sub(v);
                 vertex = edge.source;
             }
             if (vertex != undefined) {
                 drawLine(start, end);
+                var line = start.to(end);
+                var midpoint = start.add(line.mul(1 / 2));
+                var v = line.mul(ARROW_SIZE / line.size());
+                var p = midpoint.sub(v);
+                var n = v.normal();
                 fillTriangle(p.add(n), p.sub(n), p.add(v.mul(2)));
                 this.drawRelatedVertex(vertex, PREDECESSOR_EDGE);
             }
         }
     };
     Renderer.prototype.drawSidebar = function (edges) {
-        context.fillStyle = SIDEBAR_STYLE;
         var width = 250 + logistic(250, 1 / 200, 1400, canvas.width);
+        var textX = canvas.width - width + TEXT_VMARGIN;
+        context.fillStyle = SIDEBAR_STYLE;
         context.fillRect(canvas.width - width, 0, width, canvas.height);
         context.fillStyle = TEXT_COLOR;
-        context.font = "".concat(SIZE_H1, "px ").concat(TEXT_FONT);
+        context.font = font(SIZE_H1, TEXT_FONT);
         var title = "Click to Select";
         if (selectedVertex != undefined)
             title = selectedVertex.title;
-        var lines = splitText(title, width - 20);
+        var lineHeight = textHeight(title);
+        var lines = splitText(title, width - TEXT_VMARGIN);
         for (var i_1 = 0; i_1 < lines.length; i_1++) {
-            context.fillText(lines[i_1], canvas.width - width + 10, 50 + 30 * i_1);
+            context.fillText(lines[i_1], textX, TEXT_HMARGIN + lineHeight * (i_1 + 1));
         }
-        if (selectedVertex == undefined)
-            return;
-        context.font = "".concat(SIZE_H4, "px ").concat(TEXT_FONT);
-        var pre = [];
-        var suc = [];
-        for (var i = 0; i < edges.length; i++) {
-            var edge = edges[i];
-            if (edge.source.id == selectedVertex.id) {
-                suc = suc.concat(splitText(edge.target.title, width - 20));
+        if (selectedVertex != undefined) {
+            context.font = font(SIZE_H4, TEXT_FONT);
+            var pre = [];
+            var suc = [];
+            for (var i = 0; i < edges.length; i++) {
+                var edge = edges[i];
+                if (edge.source.id == selectedVertex.id) {
+                    suc = suc.concat(splitText(edge.target.title, width - TEXT_VMARGIN));
+                }
+                else if (edge.target.id == selectedVertex.id) {
+                    pre = pre.concat(splitText(edge.source.title, width - TEXT_VMARGIN));
+                }
             }
-            else if (edge.target.id == selectedVertex.id) {
-                pre = pre.concat(splitText(edge.source.title, width - 20));
+            context.font = "".concat(SIZE_H2, "px ").concat(TEXT_FONT);
+            context.fillText("Predecessors:", textX, 120);
+            context.fillText("Successors:", textX, 120 + 30 * (pre.length + 3));
+            context.font = "".concat(SIZE_H4, "px ").concat(TEXT_FONT);
+            for (var i_2 = 0; i_2 < pre.length; i_2++) {
+                context.fillText(pre[i_2], textX, 120 + 30 * (i_2 + 1));
             }
-        }
-        context.font = "".concat(SIZE_H2, "px ").concat(TEXT_FONT);
-        context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5);
-        context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3));
-        context.font = "".concat(SIZE_H4, "px ").concat(TEXT_FONT);
-        for (var i_2 = 0; i_2 < pre.length; i_2++) {
-            context.fillText(pre[i_2], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i_2 + 1));
-        }
-        for (var i_3 = 0; i_3 < suc.length; i_3++) {
-            context.fillText(suc[i_3], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i_3 + 1 + pre.length + 3));
+            for (var i_3 = 0; i_3 < suc.length; i_3++) {
+                context.fillText(suc[i_3], textX, 120 + 30 * (i_3 + 1 + pre.length + 3));
+            }
         }
     };
     Renderer.prototype.clear = function () {

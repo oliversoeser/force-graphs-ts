@@ -36,11 +36,13 @@ class Vector {
 
 const DT = 1 / 30;
 
-const SPRING_FACTOR = 1;
+const SPRING_FACTOR = 2;
 const MOUSE_SPRING_FACTOR = 10;
 const ELECTRICAL_FACTOR = 20000;
 
 const MAX_VELOCITY = 500;
+
+const MAX_FRICTION = 25;
 
 const IDEAL_SPRING_LENGTH = 25;
 
@@ -55,9 +57,13 @@ const TEXT_FONT = "Arial";
 
 const SIZE_H1 = 30;
 const SIZE_H2 = 26;
+const SIZE_H3 = 22;
 const SIZE_H4 = 18;
 
 const ARROW_SIZE = 7;
+
+const TEXT_VMARGIN = 10;
+const TEXT_HMARGIN = 10;
 
 const SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
 const INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
@@ -101,33 +107,44 @@ let context: CanvasRenderingContext2D;
 
 // The standard logistic function
 function sigmoid(x: number): number {
-    return 1 / (1 + Math.exp(-x));
+    return (1 / (1 + Math.exp(-x)));
 }
 
 // The general general logistic function
 function logistic(supremum: number, growthRate: number, midpoint: number, x: number): number {
-    return supremum * sigmoid(growthRate * (x - midpoint));
+    return (supremum * sigmoid(growthRate * (x - midpoint)));
 }
 
-function splitText(text: string, boxWidth: number): string[] {
-    let words = text.split(" ");
+function splitText(text: string, width: number): string[] {
+    let words: string[] = text.split(" ");
 
-    let lines = [];
-    let substring = words[0];
-    for (let i = 1; i < words.length; i++) {
-        if (context.measureText(substring + " " + words[i]).width >= boxWidth) {
-            lines.push(substring)
-            substring = words[i];
-        } else {
-            substring += " " + words[i]
+    let lines: string[] = [];
+    let line: string = "";
+
+    words.forEach(word => {
+        if (context.measureText(line + word).width > width) {
+            lines.push(line);
+            line = "";
         }
-    }
-    lines.push(substring)
+
+        line += word + " ";
+    });
+    lines.push(line)
+
     return lines;
 }
 
 function degreeToRadius(degree: number): number {
     return zoomFactor * (logistic(7, 1, 5, degree) + 5)
+}
+
+function font(size: number, family: string) {
+    return `${size}px ${family}`;
+}
+
+function textHeight(text: string): number {
+    let metrics = context.measureText(text);
+    return metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
 }
 
 function getColor(key: string): string {
@@ -191,13 +208,16 @@ class Vertex {
 
     // Apply force directly as velocity
     step() {
+        // Friction
         let F = this.force.size();
+        let friction = this.force.mul(1/F).mul(-1).mul(Math.min(MAX_FRICTION, F));
+        this.applyForce(friction);
+
+        F = this.force.size();
         if (F > MAX_VELOCITY) this.force = this.force.mul(MAX_VELOCITY/F);
 
         this.pos = this.pos.add(this.force.mul(DT));
         this.force = ZERO_VECTOR; // Reset force
-
-        console.log(this.pos);
     }
 }
 
@@ -278,7 +298,7 @@ class Renderer {
         let size = 14 + logistic(8, 1, 6, vertex.degree);
 
         context.fillStyle = TEXT_COLOR;
-        context.font = `${size}px ${TEXT_FONT}`;
+        context.font = font(size, TEXT_FONT);
 
         let width = context.measureText(vertex.title).width;
 
@@ -335,54 +355,58 @@ class Renderer {
     }
 
     drawSidebar(edges: Edge[]) {
-        context.fillStyle = SIDEBAR_STYLE;
-
+        // Sidebar width
         let width = 250 + logistic(250, 1/200, 1400, canvas.width);
+        let textX = canvas.width - width + TEXT_VMARGIN;
 
-        context.fillRect(canvas.width - width, 0, width, canvas.height)
+        context.fillStyle = SIDEBAR_STYLE;
+        context.fillRect(canvas.width - width, 0, width, canvas.height);
 
         context.fillStyle = TEXT_COLOR;
-        context.font = `${SIZE_H1}px ${TEXT_FONT}`;
+        context.font = font(SIZE_H1, TEXT_FONT);
 
         let title = "Click to Select";
 
         if (selectedVertex != undefined) title = selectedVertex.title;
 
-        let lines = splitText(title, width - 20);
+        let lineHeight = textHeight(title);
+
+        let lines = splitText(title, width - TEXT_VMARGIN);
 
         for (let i = 0; i < lines.length; i++) {
-            context.fillText(lines[i], canvas.width - width + 10, 50 + 30 * i)
+            context.fillText(lines[i], textX, TEXT_HMARGIN + lineHeight * (i + 1))
         }
 
-        if (selectedVertex == undefined) return;
+        if (selectedVertex != undefined)
+        {
+            context.font = font(SIZE_H4, TEXT_FONT);
 
-        context.font = `${SIZE_H4}px ${TEXT_FONT}`;
-
-        // Neighbours
-        let pre: string[] = [];
-        let suc: string[] = [];
-        for (var i = 0; i < edges.length; i++) {
-            let edge = edges[i];
-            if (edge.source.id == selectedVertex.id) {
-                suc = suc.concat(splitText(edge.target.title, width - 20));
-            } else if (edge.target.id == selectedVertex.id) {
-                pre = pre.concat(splitText(edge.source.title, width - 20))
+            // Neighbours
+            let pre: string[] = [];
+            let suc: string[] = [];
+            for (var i = 0; i < edges.length; i++) {
+                let edge = edges[i];
+                if (edge.source.id == selectedVertex.id) {
+                    suc = suc.concat(splitText(edge.target.title, width - TEXT_VMARGIN));
+                } else if (edge.target.id == selectedVertex.id) {
+                    pre = pre.concat(splitText(edge.source.title, width - TEXT_VMARGIN))
+                }
             }
-        }
 
-        context.font = `${SIZE_H2}px ${TEXT_FONT}`;
+            context.font = `${SIZE_H2}px ${TEXT_FONT}`;
 
-        context.fillText("Predecessors:", canvas.width - width + 10, 0.8 * canvas.height / 5)
-        context.fillText("Successors:", canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (pre.length + 3))
+            context.fillText("Predecessors:", textX, 120)
+            context.fillText("Successors:", textX, 120 + 30 * (pre.length + 3))
 
-        context.font = `${SIZE_H4}px ${TEXT_FONT}`;
+            context.font = `${SIZE_H4}px ${TEXT_FONT}`;
 
-        for (let i = 0; i < pre.length; i++) {
-            context.fillText(pre[i], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i + 1))
-        }
+            for (let i = 0; i < pre.length; i++) {
+                context.fillText(pre[i], textX, 120 + 30 * (i + 1))
+            }
 
-        for (let i = 0; i < suc.length; i++) {
-            context.fillText(suc[i], canvas.width - width + 10, 0.8 * canvas.height / 5 + 30 * (i + 1 + pre.length + 3))
+            for (let i = 0; i < suc.length; i++) {
+                context.fillText(suc[i], textX, 120 + 30 * (i + 1 + pre.length + 3))
+            }
         }
     }
 
@@ -474,7 +498,7 @@ class PhysicsEngine {
         let r_vec = edge.source.pos.to(edge.target.pos);
         let r = r_vec.size();
 
-        if (r == 0) return ZERO_VECTOR
+        if (r == 0) return ZERO_VECTOR;
 
         let force = r_vec.mul((SPRING_FACTOR * (r - IDEAL_SPRING_LENGTH)) / r);
 
@@ -506,7 +530,7 @@ class App {
     private readonly springEmbedder: PhysicsEngine;
 
     constructor(data: GraphData) {
-        this.springEmbedder = new PhysicsEngine(data)
+        this.springEmbedder = new PhysicsEngine(data);
 
         currentMouseAction = MouseAction.None;
         mousePos = ZERO_VECTOR;
