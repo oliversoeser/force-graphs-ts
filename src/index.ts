@@ -34,17 +34,20 @@ class Vector {
     normal(): Vector { return new Vector(-this.y, this.x) }
 }
 
-const DT = 1 / 30;
+const DT = 1 / 30; // s
 
 const SPRING_FACTOR = 2;
 const MOUSE_SPRING_FACTOR = 10;
 const ELECTRICAL_FACTOR = 20000;
 
-const MAX_VELOCITY = 500;
+const MAX_VELOCITY = 500; // px/s
 
 const MAX_FRICTION = 25;
 
-const IDEAL_SPRING_LENGTH = 25;
+const IDEAL_SPRING_LENGTH = 25; // px
+
+const MIN_ZOOM = -10000;
+const MAX_ZOOM = 10000;
 
 const GRAPH_DATA_PATH = "../data/graph.json";
 
@@ -60,10 +63,13 @@ const SIZE_H2 = 26;
 const SIZE_H3 = 22;
 const SIZE_H4 = 18;
 
-const ARROW_SIZE = 7;
+const ARROW_SIZE = 7; // px
 
-const TEXT_VMARGIN = 10;
-const TEXT_HMARGIN = 10;
+const TEXT_VMARGIN = 10; // px
+const TEXT_HMARGIN = 10; // px
+
+const HOVER_HMARGIN = 5; // px
+const HOVER_VMARGIN = 3; // px
 
 const SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
 const INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
@@ -91,7 +97,7 @@ const MATHEMATICS_COLOR = "#F03424";
 const PHYSICS_COLOR = "#2F24F0";
 
 const ZERO_VECTOR = new Vector(0, 0);
-const SECOND = 1000;
+const SECOND = 1000; // ms
 
 let cameraPos: Vector = ZERO_VECTOR;
 let cameraZoom: number = 0;
@@ -104,6 +110,10 @@ let currentMouseAction: MouseAction = MouseAction.None;
 
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
+
+function clamp(n: number, min: number, max: number): number {
+    return Math.min(Math.max(n, min), max);
+}
 
 // The standard logistic function
 function sigmoid(x: number): number {
@@ -142,9 +152,14 @@ function font(size: number, family: string) {
     return `${size}px ${family}`;
 }
 
-function textHeight(text: string): number {
+function fontHeight(text: string): number {
     let metrics = context.measureText(text);
     return metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
+}
+
+function textHeight(text: string): number {
+    let metrics = context.measureText(text);
+    return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 }
 
 function getColor(key: string): string {
@@ -185,8 +200,8 @@ function randomVectorInRange(x_min: number, x_max: number, y_min: number, y_max:
 }
 
 class Vertex {
-    public pos: Vector; // Position
-    private force: Vector; // Total force applied in the current step
+    public pos: Vector; // (px, px) - Current position
+    private force: Vector; // (px/s, px/s) - Total "force" applied in the current step
     public readonly id: number;
     public readonly key: string;
     public readonly title: string;
@@ -301,10 +316,11 @@ class Renderer {
         context.font = font(size, TEXT_FONT);
 
         let width = context.measureText(vertex.title).width;
+        let height = textHeight(vertex.title);
 
         context.fillStyle = INFO_BG_STYLE;
 
-        context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5);
+        context.fillRect(pos.x - HOVER_HMARGIN - width / 2, pos.y - height - HOVER_VMARGIN, width + 2 * HOVER_HMARGIN, height + 2 * HOVER_VMARGIN);
 
         context.fillStyle = TEXT_COLOR;
         context.fillText(vertex.title, pos.x - width / 2, pos.y);
@@ -322,18 +338,16 @@ class Renderer {
         if (selectedVertex != undefined) {
             context.lineWidth = 3;
 
-            let vertex; Vertex;
+            let vertex: Vertex;
 
             if (edge.source.id == selectedVertex.id) {
                 context.strokeStyle = SUCCESSOR_EDGE;
                 context.fillStyle = SUCCESSOR_EDGE;
-
                 vertex = edge.target;
             }
             else if (edge.target.id == selectedVertex.id) {
                 context.strokeStyle = PREDECESSOR_EDGE;
                 context.fillStyle = PREDECESSOR_EDGE;
-
                 vertex = edge.source;
             }
 
@@ -369,7 +383,7 @@ class Renderer {
 
         if (selectedVertex != undefined) title = selectedVertex.title;
 
-        let lineHeight = textHeight(title);
+        let lineHeight = fontHeight(title);
 
         let lines = splitText(title, width - TEXT_VMARGIN);
 
@@ -572,12 +586,9 @@ class App {
 
         canvas.addEventListener("wheel", (ev: WheelEvent) => {
             cameraZoom -= ev.deltaY;
-            zoomFactor = this.zoomFactor(cameraZoom);
+            cameraZoom = clamp(cameraZoom, -MIN_ZOOM, MAX_ZOOM);
+            zoomFactor = Math.exp(cameraZoom / 5000);
         })
-    }
-
-    zoomFactor(zoom: number) {
-        return Math.max(Math.exp(zoom / 5000), 0.2);
     }
 }
 
