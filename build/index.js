@@ -24,8 +24,6 @@ var ELECTRICAL_FACTOR = 20000;
 var MAX_VELOCITY = 500;
 var MAX_FRICTION = 25;
 var IDEAL_SPRING_LENGTH = 25;
-var MIN_ZOOM = -10000;
-var MAX_ZOOM = 10000;
 var GRAPH_DATA_PATH = "../data/graph.json";
 var SUCCESSOR_EDGE = "#3a86ff";
 var PREDECESSOR_EDGE = "#ff006e";
@@ -39,8 +37,6 @@ var SIZE_H4 = 18;
 var ARROW_SIZE = 7;
 var TEXT_VMARGIN = 10;
 var TEXT_HMARGIN = 10;
-var HOVER_HMARGIN = 5;
-var HOVER_VMARGIN = 3;
 var SIDEBAR_STYLE = "rgba(255, 255, 255, 0.7)";
 var INFO_BG_STYLE = "rgba(255, 255, 255, 0.4)";
 var VERTEX_STROKE = "#023047";
@@ -73,9 +69,6 @@ var mouseActive = false;
 var currentMouseAction = MouseAction.None;
 var canvas;
 var context;
-function clamp(n, min, max) {
-    return Math.min(Math.max(n, min), max);
-}
 function sigmoid(x) {
     return (1 / (1 + Math.exp(-x)));
 }
@@ -102,13 +95,9 @@ function degreeToRadius(degree) {
 function font(size, family) {
     return "".concat(size, "px ").concat(family);
 }
-function fontHeight(text) {
-    var metrics = context.measureText(text);
-    return metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
-}
 function textHeight(text) {
     var metrics = context.measureText(text);
-    return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+    return metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
 }
 function getColor(key) {
     key = key.substring(0, 4);
@@ -235,9 +224,8 @@ var Renderer = (function () {
         context.fillStyle = TEXT_COLOR;
         context.font = font(size, TEXT_FONT);
         var width = context.measureText(vertex.title).width;
-        var height = textHeight(vertex.title);
         context.fillStyle = INFO_BG_STYLE;
-        context.fillRect(pos.x - HOVER_HMARGIN - width / 2, pos.y - height - HOVER_VMARGIN, width + 2 * HOVER_HMARGIN, height + 2 * HOVER_VMARGIN);
+        context.fillRect(pos.x - 1.01 * width / 2, pos.y - size, 1.01 * width, size * 1.5);
         context.fillStyle = TEXT_COLOR;
         context.fillText(vertex.title, pos.x - width / 2, pos.y);
     };
@@ -250,6 +238,7 @@ var Renderer = (function () {
         if (selectedVertex != undefined) {
             context.lineWidth = 3;
             var vertex = void 0;
+            Vertex;
             if (edge.source.id == selectedVertex.id) {
                 context.strokeStyle = SUCCESSOR_EDGE;
                 context.fillStyle = SUCCESSOR_EDGE;
@@ -282,7 +271,7 @@ var Renderer = (function () {
         var title = "Click to Select";
         if (selectedVertex != undefined)
             title = selectedVertex.title;
-        var lineHeight = fontHeight(title);
+        var lineHeight = textHeight(title);
         var lines = splitText(title, width - TEXT_VMARGIN);
         for (var i_1 = 0; i_1 < lines.length; i_1++) {
             context.fillText(lines[i_1], textX, TEXT_HMARGIN + lineHeight * (i_1 + 1));
@@ -424,10 +413,12 @@ var App = (function () {
         });
         canvas.addEventListener("wheel", function (ev) {
             cameraZoom -= ev.deltaY;
-            cameraZoom = clamp(cameraZoom, -MIN_ZOOM, MAX_ZOOM);
-            zoomFactor = Math.exp(cameraZoom / 5000);
+            zoomFactor = _this.zoomFactor(cameraZoom);
         });
     }
+    App.prototype.zoomFactor = function (zoom) {
+        return Math.max(Math.exp(zoom / 5000), 0.2);
+    };
     return App;
 }());
 window.onload = function () {
